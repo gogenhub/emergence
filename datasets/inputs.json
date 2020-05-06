@@ -1,0 +1,20 @@
+{
+	"LacI": {
+		"name": "LacI",
+		"promoter": "pTac",
+		"rpu_off": 0.0034,
+		"rpu_on": 2.8
+	},
+	"AraC": {
+		"name": "AraC",
+		"promoter": "pBAD",
+		"rpu_off": 0.0082,
+		"rpu_on": 2.5
+	},
+	"TetR": {
+		"name": "TetR",
+		"promoter": "pTet",
+		"rpu_off": 0.0013,
+		"rpu_on": 4.4
+	}
+}
