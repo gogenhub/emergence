@@ -58,6 +58,9 @@ enum Method {
 	POST,
 	GET,
 	OPTIONS,
+	PUT,
+	DELETE,
+	PATCH,
 }
 
 #[derive(Deserialize)]

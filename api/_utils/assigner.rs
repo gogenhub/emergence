@@ -7,7 +7,7 @@ use meval::{Context, Expr};
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
-use std::{env, f64::MAX, fs};
+use std::{env, f64::MAX};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 enum PartKind {

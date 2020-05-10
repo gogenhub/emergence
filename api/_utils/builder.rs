@@ -3,10 +3,9 @@ use helpers::{
 	args_from_to, compile_err, format_args_for_gate, format_ret_for_gate, get_gate_kind, map_hms,
 	ret_from_to, uw, Error, Warning,
 };
+use parser::{Arg, Def, DefKind, ExpressionKind, Operation, OperationKind, ParserIter};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-
-use parser::{Arg, Def, DefKind, ExpressionKind, Operation, OperationKind, ParserIter};
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum GateKind {
