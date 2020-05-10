@@ -1,15 +1,15 @@
+use crate::_utils::{builder, helpers, kd_tree};
 use builder::{Gate, LogicCircut};
 use fs_extra::file::read_to_string;
+use helpers::{assign_err, get_promoter_kind, Error};
 use kd_tree::KdTree;
 use meval::{Context, Expr};
-use parser::Error;
+use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
-use std::env;
-use std::f64::MAX;
-use utils::{assign_err, builder, get_promoter_kind, kd_tree, parser};
+use std::{env, f64::MAX, fs};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 enum PartKind {
 	Promoter,
 	Cds,
@@ -20,7 +20,7 @@ enum PartKind {
 	SgRNA,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Part {
 	kind: PartKind,
 	name: String,
@@ -35,14 +35,14 @@ struct Input {
 	rpu_on: f64,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Output {
 	inputs: Vec<String>,
 	name: String,
 	seq: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct BioGate {
 	name: String,
 	parts: Vec<String>,
@@ -223,11 +223,11 @@ impl Assigner {
 
 	pub fn load(&mut self) {
 		let dir = env::current_dir().unwrap();
-		let trees_path = format!("{}/datasets/trees.json", dir.display());
-		let gates_path = format!("{}/datasets/gates.json", dir.display());
-		let parts_path = format!("{}/datasets/parts.json", dir.display());
-		let inputs_path = format!("{}/datasets/inputs.json", dir.display());
-		let outputs_path = format!("{}/datasets/outputs.json", dir.display());
+		let trees_path = format!("{}/static/trees.json", dir.display());
+		let gates_path = format!("{}/static/gates.json", dir.display());
+		let parts_path = format!("{}/static/parts.json", dir.display());
+		let inputs_path = format!("{}/static/inputs.json", dir.display());
+		let outputs_path = format!("{}/static/outputs.json", dir.display());
 
 		let trees_f = read_to_string(trees_path).unwrap();
 		let gates_f = read_to_string(gates_path).unwrap();

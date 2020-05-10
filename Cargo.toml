@@ -1,9 +1,19 @@
 [package]
 name = "index"
-version = "2.0.0"
-authors = [ "Mike Engel <mike@mike-engel.com>" ]
+version = "1.0.0"
+authors = [ "Filip Lazovic <lazoviccorp@gmail.com>" ]
 edition = "2018"
 
 [dependencies]
-http = "0.1"
-now_lambda = "*"
+fs_extra = "1.1.0"
+meval = "0.2"
+serde_json = "1.0"
+serde = { version = "1.0", features = [ "derive" ] }
+regex = "1"
+once_cell = "1.3.1"
+lambda_runtime = "0.2.1"
+base64 = "0.10"
+
+[[bin]]
+name = "compile"
+path = "api/compile.rs"

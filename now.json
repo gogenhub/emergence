@@ -1,7 +1,9 @@
 {
-	"functions": {
-		"api/test.rs": {
-			"runtime": "now-rust@2.0.0"
+	"version": 2,
+	"builds": [
+		{
+			"src": "api/compile.rs",
+			"use": "vercel-rust"
 		}
-	}
+	]
 }
