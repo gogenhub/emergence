@@ -86,7 +86,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	let req: Request = serde_json::from_str(&e.body)?;
 	let mut headers = HashMap::new();
 	headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
-	if req.method == Method::OPTIONS {
+	if req.method != Method::POST {
 		headers.insert(
 			"Access-Control-Request-Method".to_owned(),
 			"POST, OPTIONS, GET".to_owned(),
@@ -95,7 +95,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		return Ok(Response {
 			status_code: 200,
 			headers: headers,
-			body: "".to_owned(),
+			body: "Please use POST method if your want to compile code.".to_owned(),
 			encoding: None,
 		});
 	}
