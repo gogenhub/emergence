@@ -95,7 +95,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		return Ok(Response {
 			status_code: 200,
 			headers: headers,
-			body: "Please use POST method if your want to compile code.".to_owned(),
+			body: "{ \"message\": \"Use POST to compile code.\" }".to_owned(),
 			encoding: None,
 		});
 	}
