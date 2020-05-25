@@ -53,7 +53,7 @@ struct NowEvent {
 	body: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq)]
 enum Method {
 	POST,
 	GET,
@@ -84,6 +84,16 @@ struct Response {
 
 fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	let req: Request = serde_json::from_str(&e.body)?;
+	if req.method == Method::OPTIONS {
+		let mut headers = HashMap::new();
+		headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
+		return Ok(Response {
+			status_code: 200,
+			headers: headers,
+			body: None,
+			encoding: None,
+		});
+	}
 	let req_body = if req.encoding.is_some() && req.encoding.unwrap() == "base64" {
 		str::from_utf8(&base64::decode(&req.body).unwrap_or_default())
 			.unwrap()
