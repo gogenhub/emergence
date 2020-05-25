@@ -84,9 +84,14 @@ struct Response {
 
 fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	let req: Request = serde_json::from_str(&e.body)?;
+	let mut headers = HashMap::new();
+	headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
 	if req.method == Method::OPTIONS {
-		let mut headers = HashMap::new();
-		headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
+		headers.insert(
+			"Access-Control-Request-Method".to_owned(),
+			"POST, OPTIONS, GET".to_owned(),
+		);
+		headers.insert("Access-Control-Request-Headers".to_owned(), "*".to_owned());
 		return Ok(Response {
 			status_code: 200,
 			headers: headers,
@@ -118,7 +123,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 
 	Ok(Response {
 		status_code: status_code,
-		headers: HashMap::new(),
+		headers: headers,
 		body: Some(body),
 		encoding: None,
 	})
