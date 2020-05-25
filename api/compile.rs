@@ -69,6 +69,7 @@ struct Request {
 	path: String,
 	method: Method,
 	headers: HashMap<String, String>,
+	#[serde(default = "String::new")]
 	body: String,
 	encoding: Option<String>,
 }
@@ -86,7 +87,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	let req: Request = serde_json::from_str(&e.body)?;
 	let mut headers = HashMap::new();
 	headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
-	if req.method != Method::POST {
+	if req.method == Method::OPTIONS {
 		headers.insert(
 			"Access-Control-Request-Method".to_owned(),
 			"POST, OPTIONS, GET".to_owned(),
@@ -95,7 +96,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		return Ok(Response {
 			status_code: 200,
 			headers: headers,
-			body: "{ \"message\": \"Use POST to compile code.\" }".to_owned(),
+			body: "".to_owned(),
 			encoding: None,
 		});
 	}
