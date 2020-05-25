@@ -78,7 +78,7 @@ struct Request {
 struct Response {
 	status_code: u16,
 	headers: HashMap<String, String>,
-	body: Option<String>,
+	body: String,
 	encoding: Option<String>,
 }
 
@@ -95,7 +95,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		return Ok(Response {
 			status_code: 200,
 			headers: headers,
-			body: None,
+			body: "".to_owned(),
 			encoding: None,
 		});
 	}
@@ -124,7 +124,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	Ok(Response {
 		status_code: status_code,
 		headers: headers,
-		body: Some(body),
+		body: body,
 		encoding: None,
 	})
 }
