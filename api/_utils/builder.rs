@@ -268,7 +268,7 @@ impl<'a> LogicCircutBuilder<'a> {
 		}
 	}
 
-	fn build_parse_tree(&mut self) -> Result<Vec<Warning>, Error> {
+	pub fn build_parse_tree(&mut self) -> Result<Vec<Warning>, Error> {
 		let mut parse_tree = HashMap::new();
 		let mut fn_map = HashMap::new();
 		let mut gene_set = HashSet::new();
@@ -315,8 +315,7 @@ impl<'a> LogicCircutBuilder<'a> {
 		Ok(warnings)
 	}
 
-	pub fn build_logic_circut(&mut self) -> Result<(LogicCircut, Vec<Warning>), Error> {
-		let warnings = self.build_parse_tree()?;
+	pub fn build_logic_circut(&mut self) -> Result<LogicCircut, Error> {
 		let main_def = self.parse_tree.get("main").unwrap();
 		let mut gates = HashMap::new();
 		let arg_map = args_from_to(&main_def.params, &main_def.params);
@@ -330,6 +329,6 @@ impl<'a> LogicCircutBuilder<'a> {
 			inputs: ins,
 			output: out,
 		};
-		Ok((lc, warnings))
+		Ok(lc)
 	}
 }
