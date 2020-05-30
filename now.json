@@ -2,7 +2,7 @@
 	"version": 2,
 	"builds": [
 		{
-			"src": "api/compiler.rs",
+			"src": "api/compile.rs",
 			"use": "vercel-rust"
 		}
 	]

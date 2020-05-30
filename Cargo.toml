@@ -15,5 +15,5 @@ lambda_runtime = "0.2.1"
 base64 = "0.10"
 
 [[bin]]
-name = "compiler"
-path = "api/compiler.rs"
+name = "compile"
+path = "api/compile.rs"

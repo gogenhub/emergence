@@ -48,7 +48,7 @@ pub struct BioGate {
 	parts: Vec<String>,
 	promoter: String,
 	#[serde(default = "Vec::new")]
-	input_promoters: Vec<String>,
+	inputs: Vec<String>,
 	equation: String,
 	params: HashMap<String, f64>,
 }
@@ -146,7 +146,7 @@ impl Assigner {
 
 		let ln = ln.unwrap();
 		let mut bio_gate = self.gates.get(&ln.name).cloned().unwrap();
-		bio_gate.input_promoters = input_promoters;
+		bio_gate.inputs = input_promoters;
 		let promoter = bio_gate.promoter.to_owned();
 		new_map.insert(ln.name.to_owned(), bio_gate);
 
@@ -197,6 +197,16 @@ impl Assigner {
 				let p = self.parts.get(part).cloned().unwrap();
 				parts.insert(part.to_owned(), p);
 			}
+
+			for input in &gate.inputs {
+				let p = self.parts.get(input).cloned().unwrap();
+				parts.insert(input.to_owned(), p);
+			}
+		}
+
+		for input in &output.inputs {
+			let p = self.parts.get(input).cloned().unwrap();
+			parts.insert(input.to_owned(), p);
 		}
 
 		for input in &lc.inputs {
