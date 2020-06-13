@@ -42,6 +42,10 @@ gene main (TetR, LacI) -> RFP {
 ```
 compiles to:
 
+<img src="./images/NOR.svg" width="300" />
+
 which then gets converted to genetic gates:
+
+<img src="./images/bio-gate-example.svg" width="600" />
 
 Assigner is using KdTree search algorithm to find genetic gates with most similar response functions. Response function describes the expression of a protein based on concentration of inputs. There are two modes: normal and strict. Normal mode is optimized for assigning more gates, but with possibility that these gates are not the best solution. Strict mode will always assign the best gates, but with a change of failing to assign all of them if circuts are big.
