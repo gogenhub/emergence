@@ -1,4 +1,4 @@
-# emergence
+![Emergence](./images/emergence-bg.svg)
 
 Emergence is a language for writing genetic circuits. The program is written in form of logic functions, which describe boolean logic between variables and produce an output. These functions together form a abstract logic circuts which is then converted to genetic circut that consists of genetic gates.
 
