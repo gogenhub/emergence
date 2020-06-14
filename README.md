@@ -44,7 +44,7 @@ compiles to:
 
 <img src="./images/NOR.svg" width="300" />
 
-which then gets converted to genetic gates by the algorithm called Assigner:
+which then gets converted to genetic gates by the Assigner:
 
 <img src="./images/bio-gate-example.svg" width="600" />
 
