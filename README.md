@@ -37,6 +37,7 @@ After parsing a program into a parse tree, the compiler creates an abstract logi
 
 ```rust
 gene main (TetR, LacI) -> RFP {
+	
 	RFP = TetR ~| LacI;
 }
 ```
