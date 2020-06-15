@@ -1,6 +1,6 @@
 ![Emergence](./images/emergence-bg.svg)
 
-Emergence is a language for writing genetic circuits, which describe what proteins are synthesized bases on what signals i.e. decision making of a cell. The program is written in the form of logic functions, which describe boolean logic between variables and produce an output. These functions together form an abstract logic circuit which is then converted to a genetic circuit that consists of genetic gates.
+Emergence is a language for writing genetic circuits, which describe what proteins are synthesized bases on what signals within the cell, i.e. decision-making of a cell. The program is written in the form of logic functions, which describe boolean logic between variables and produce an output. These functions together form an abstract logic circuit which is then converted to a genetic circuit that consists of genetic gates.
 
 ## Program
 
