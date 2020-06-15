@@ -26,7 +26,7 @@ fn nor(a, b) -> c {
 
 ```rust
 // the red fluorescent protein is synthesized when there is a low concentration of lactose
-gene blue LacI -> RFP {
+gene redboy LacI -> RFP {
     RFP = not(LacI);
 }
 ```
