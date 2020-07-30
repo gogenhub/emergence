@@ -48,4 +48,4 @@ which then gets converted to genetic gates by the Assigner:
 
 <img src="./images/bio-gate-example.svg" width="600" />
 
-Assigner is using the KdTree search algorithm to find genetic gates with the most similar response functions. Response function describes the expression of a protein, based on the concentration of inputs. There are two modes: normal and strict. Normal mode is optimized for assigning more gates, but with the possibility that these gates are not the best solution. Strict mode will always assign the best gates, but with a change of failing to assign all of them if circuits are big.
+Assigner is an algorithm that finds genetic gates that are the best match for the response from previus gate in the circuit. Response function describes the expression of a protein, based on the concentration of inputs. There are two modes: normal and strict. Normal mode is optimized for assigning more gates, but with the possibility that these gates are not the best solution. Strict mode will always assign the best gates, but with a change of failing to assign all of them if circuits are big.
