@@ -18,20 +18,6 @@ pub enum GateKind {
 	Unknown,
 }
 
-impl GateKind {
-	pub fn to_string(&self) -> String {
-		match self {
-			GateKind::OR => "OR".to_string(),
-			GateKind::NOT => "NOT".to_string(),
-			GateKind::NOR => "NOR".to_string(),
-			GateKind::AND => "AND".to_string(),
-			GateKind::NAND => "NAND".to_string(),
-			GateKind::XOR => "XOR".to_string(),
-			GateKind::Unknown => "Unknown".to_string(),
-		}
-	}
-}
-
 #[derive(Debug)]
 pub struct Gate {
 	pub inputs: Vec<String>,

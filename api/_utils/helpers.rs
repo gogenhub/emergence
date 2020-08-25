@@ -1,6 +1,5 @@
-use crate::_utils::{assigner, builder, parser};
+use crate::_utils::{builder, parser};
 
-use assigner::PromoterKind;
 use builder::GateKind;
 use parser::Arg;
 use serde::Serialize;
@@ -96,13 +95,6 @@ pub fn get_gate_kind(symbol: &str) -> GateKind {
 		"~|" => GateKind::NOR,
 		"~^" => GateKind::XOR,
 		_ => GateKind::Unknown,
-	}
-}
-
-pub fn get_promoter_kind(gate_kind: &GateKind) -> PromoterKind {
-	match gate_kind {
-		GateKind::NOT | GateKind::NOR => PromoterKind::Repressor,
-		_ => PromoterKind::Unknown,
 	}
 }
 
