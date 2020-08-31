@@ -1,4 +1,5 @@
 extern crate base64;
+extern crate chrono;
 extern crate fs_extra;
 extern crate meval;
 extern crate regex;
@@ -7,8 +8,8 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{assigner, builder, helpers, lexer, parser};
-use assigner::{BioGate, Output, Part};
+use _utils::{assembler, builder, helpers, lexer, parser};
+use assembler::{Assembler, GeneticCircuit};
 use helpers::{Error, Warning};
 use lambda_runtime::{error::HandlerError, start, Context};
 use once_cell::sync::Lazy;
@@ -16,14 +17,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::{collections::HashMap, error::Error as StdError, str, sync::Mutex};
 
-static ASSIGNER: Lazy<Mutex<assigner::Assigner>> =
-	Lazy::new(|| Mutex::new(assigner::Assigner::new()));
+static ASSIGNER: Lazy<Mutex<Assembler>> = Lazy::new(|| Mutex::new(Assembler::new()));
 
 #[derive(Serialize, Debug)]
 struct CompileResult {
-	gates: HashMap<String, BioGate>,
-	output: Output,
-	parts: HashMap<String, Part>,
+	simulation: Vec<(String, bool, f64)>,
+	gc: GeneticCircuit,
+	gates_dna: String,
+	out_dna: String,
+	gates_plasmid: String,
+	out_plasmid: String,
 	warnings: Vec<Warning>,
 }
 
@@ -67,19 +70,25 @@ struct Response {
 fn compile(emergence: String) -> Result<CompileResult, Error> {
 	let lx = lexer::LexerIter::new(emergence.chars());
 	let prs = parser::ParserIter::new(lx);
-	let mut bld = builder::LogicCircutBuilder::new(prs);
+	let mut bld = builder::LogicCircuitBuilder::new(prs);
 	let warnings = bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut()?;
 	let mut ass = ASSIGNER.lock().unwrap();
 	if !ass.loaded {
 		ass.load();
 	}
-	let (gates, output, parts) = ass.assign_gates(lc)?;
+	let ass_gates = ass.assign(&lc)?;
+	let gc = ass.assemble(&lc, &ass_gates);
+	let pred = ass.simulate(&lc, &ass_gates);
+	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = ass.make_dna(&gc);
 	Ok(CompileResult {
+		gc: gc,
+		simulation: pred,
+		gates_dna: gates_dna,
+		out_dna: out_dna,
+		gates_plasmid: gates_plasmid,
+		out_plasmid: out_plasmid,
 		warnings,
-		gates: gates,
-		output: output,
-		parts: parts,
 	})
 }
 

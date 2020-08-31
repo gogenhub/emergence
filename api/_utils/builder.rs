@@ -9,34 +9,30 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub enum GateKind {
-	OR,
 	NOT,
 	NOR,
-	AND,
-	NAND,
-	XOR,
 	Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
 pub struct Gate {
 	pub inputs: Vec<String>,
 	pub kind: GateKind,
 }
 
 #[derive(Debug)]
-pub struct LogicCircut {
+pub struct LogicCircuit {
 	pub inputs: Vec<Arg>,
 	pub output: Arg,
 	pub gates: HashMap<String, Gate>,
 }
 
-pub struct LogicCircutBuilder<'a> {
+pub struct LogicCircuitBuilder<'a> {
 	parse_iter: ParserIter<'a>,
 	parse_tree: HashMap<String, Def>,
 }
 
-impl<'a> LogicCircutBuilder<'a> {
+impl<'a> LogicCircuitBuilder<'a> {
 	pub fn new(parse_iter: ParserIter<'a>) -> Self {
 		Self {
 			parse_iter: parse_iter,
@@ -301,7 +297,7 @@ impl<'a> LogicCircutBuilder<'a> {
 		Ok(warnings)
 	}
 
-	pub fn build_logic_circut(&mut self) -> Result<LogicCircut, Error> {
+	pub fn build_logic_circut(&mut self) -> Result<LogicCircuit, Error> {
 		let main_def = self.parse_tree.get("main").unwrap();
 		let mut gates = HashMap::new();
 		let arg_map = args_from_to(&main_def.params, &main_def.params);
@@ -310,7 +306,7 @@ impl<'a> LogicCircutBuilder<'a> {
 
 		let ins = main_def.params.clone();
 		let out = main_def.ret.clone();
-		let lc = LogicCircut {
+		let lc = LogicCircuit {
 			gates: gates,
 			inputs: ins,
 			output: out,
