@@ -21,6 +21,7 @@ static ASSIGNER: Lazy<Mutex<Assembler>> = Lazy::new(|| Mutex::new(Assembler::new
 
 #[derive(Serialize, Debug)]
 struct CompileResult {
+	score: f64,
 	simulation: Vec<(String, bool, f64)>,
 	gc: GeneticCircuit,
 	gates_dna: String,
@@ -77,11 +78,12 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	if !ass.loaded {
 		ass.load();
 	}
-	let ass_gates = ass.assign(&lc)?;
+	let (ass_gates, score) = ass.assign(&lc)?;
 	let gc = ass.assemble(&lc, &ass_gates);
 	let pred = ass.simulate(&lc, &ass_gates);
 	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = ass.make_dna(&gc);
 	Ok(CompileResult {
+		score: score,
 		gc: gc,
 		simulation: pred,
 		gates_dna: gates_dna,

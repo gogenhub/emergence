@@ -97,7 +97,7 @@ pub fn gate_logic(inputs: Vec<bool>, rpus: Vec<f64>, kind: &GateKind) -> (bool, 
 					return (false, rpus[0].max(rpus[1]));
 				}
 			}
-			(true, rpus[0])
+			(true, rpus[0].max(rpus[1]))
 		}
 		_ => panic!("wtf"),
 	}
@@ -178,7 +178,7 @@ pub fn make_plasmid_dna(seq: &str) -> String {
 						parsed
 					})
 					.collect();
-				let index_fmt = format!("     {:<9}", (i * 60) + 1);
+				let index_fmt = format!("     {:>9}", (i * 60) + 1);
 				format!("{} {}", index_fmt, ch.join(" "))
 			})
 			.collect::<Vec<String>>()
