@@ -1,5 +1,5 @@
 use crate::_utils::{builder, helpers, kd_tree};
-use builder::{Gate, LogicCircuit};
+use builder::LogicCircuit;
 use colors_transform::{Color, Hsl};
 use fs_extra::file::read_to_string;
 use helpers::{
@@ -242,8 +242,6 @@ impl Assembler {
 		let output_plasmid_dna = make_plasmid_dna(&output_dna);
 		let final_output_plasmid = output_title + &output_plasmid + &output_plasmid_dna;
 
-		println!("{}", final_gates_plasmid);
-
 		(
 			gates_dna,
 			output_dna,
@@ -271,9 +269,9 @@ impl Assembler {
 			rpus.push(rpu);
 		}
 
+		let (out, x) = gate_logic(inputs, rpus, &gate.kind);
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
 		let bio_gate = self.gates.get(assigned_gate).unwrap();
-		let (out, x) = gate_logic(inputs, rpus, &gate.kind);
 		let y = transfer(x, &bio_gate.params);
 
 		(out, y)
@@ -372,7 +370,7 @@ impl Assembler {
 		genetic_circuit
 	}
 
-	pub fn assign(&mut self, lc: &LogicCircuit) -> Result<HashMap<String, String>, Error> {
+	pub fn assign(&mut self, lc: &LogicCircuit) -> Result<(HashMap<String, String>, f64), Error> {
 		if !self.outputs.contains_key(&lc.output.name) {
 			return Err(assign_err(
 				format!("Output '{}' not found.", lc.output.name),
@@ -392,17 +390,23 @@ impl Assembler {
 			inputs.insert(input.name.to_owned(), inp);
 		}
 
-		let assigned_gates = self.try_walk(lc, 1.0)?;
+		let (assigned_gates, min) = self.try_walk(lc, 1.0)?;
 
-		Ok(assigned_gates)
+		Ok((assigned_gates, min))
 	}
 
-	fn try_walk(&self, lc: &LogicCircuit, min: f64) -> Result<HashMap<String, String>, Error> {
+	fn try_walk(
+		&self,
+		lc: &LogicCircuit,
+		min: f64,
+	) -> Result<(HashMap<String, String>, f64), Error> {
 		let mut assigned_gates = HashMap::new();
+
+		let initial_bl: HashSet<String> = lc.inputs.iter().map(|x| x.name.to_owned()).collect();
 		let (_, _, new_min, _, _) = self.walk_back(
 			lc.output.name.to_owned(),
-			&lc.gates,
-			&HashSet::new(),
+			&lc,
+			&initial_bl,
 			&mut HashMap::new(),
 			&mut assigned_gates,
 			min,
@@ -412,14 +416,14 @@ impl Assembler {
 		if chres.is_ok() {
 			Ok(chres.unwrap())
 		} else {
-			Ok(assigned_gates)
+			Ok((assigned_gates, new_min))
 		}
 	}
 
 	fn walk_back(
 		&self,
 		curr_gate: String,
-		gates: &HashMap<String, Gate>,
+		lc: &LogicCircuit,
 		ext_bl: &HashSet<String>,
 		gate_bl: &mut HashMap<String, HashSet<String>>,
 		assigned_gates: &mut HashMap<String, String>,
@@ -439,13 +443,13 @@ impl Assembler {
 			));
 		}
 
-		let gate = gates.get(&curr_gate).unwrap();
+		let gate = lc.gates.get(&curr_gate).unwrap();
 		let mut res_bl = ext_bl.clone();
 		let (mut new_on, mut new_off, mut new_min, mut names): (f64, f64, f64, Vec<String>) =
 			(0.0, f64::MAX, f64::MAX, vec![]);
 		for inp in &gate.inputs {
 			let (con, coff, cmin, name, bl) =
-				self.walk_back(inp.to_owned(), gates, &res_bl, gate_bl, assigned_gates, min)?;
+				self.walk_back(inp.to_owned(), lc, &res_bl, gate_bl, assigned_gates, min)?;
 			res_bl.extend(bl);
 			names.push(name);
 			new_on = con.max(new_on);
@@ -467,7 +471,7 @@ impl Assembler {
 			}
 			let currgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
 			currgbl.insert(names[0].to_owned());
-			return self.walk_back(curr_gate, gates, ext_bl, gate_bl, assigned_gates, min);
+			return self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min);
 		}
 
 		res_bl.insert(get_group(name.to_owned()));
