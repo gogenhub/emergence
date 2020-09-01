@@ -1,6 +1,6 @@
 [package]
 name = "index"
-version = "1.0.0"
+version = "0.2.0"
 authors = [ "Filip Lazovic <lazoviccorp@gmail.com>" ]
 edition = "2018"
 
@@ -13,6 +13,8 @@ regex = "1"
 once_cell = "1.3.1"
 lambda_runtime = "0.2.1"
 base64 = "0.10"
+chrono = "0.4"
+colors-transform = "0.2.11"
 
 [[bin]]
 name = "compile"

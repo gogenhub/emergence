@@ -102,6 +102,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "colors-transform"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9226dbc05df4fb986f48d730b001532580883c4c06c5d1c213f4b34c1c157178"
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -308,9 +314,11 @@ dependencies = [
 
 [[package]]
 name = "index"
-version = "1.0.0"
+version = "0.2.0"
 dependencies = [
  "base64",
+ "chrono",
+ "colors-transform",
  "fs_extra",
  "lambda_runtime",
  "meval",

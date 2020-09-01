@@ -1,4 +1,4 @@
-pub mod assigner;
+pub mod assembler;
 pub mod builder;
 pub mod helpers;
 pub mod kd_tree;

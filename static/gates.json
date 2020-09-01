@@ -8,7 +8,6 @@
 			"ECK120029600"
 		],
 		"promoter": "pSrpR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.14380413,
 			"ymax": 19.804829,
@@ -25,7 +24,6 @@
 			"ECK120010876"
 		],
 		"promoter": "pLmrA",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.2,
 			"n": 2.1,
@@ -42,7 +40,6 @@
 			"L3S2P24"
 		],
 		"promoter": "pLitR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 1.0459112,
 			"ymin": 0.12850182,
@@ -59,7 +56,6 @@
 			"ECK120019600"
 		],
 		"promoter": "pSrpR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 2.9,
 			"ymin": 0.003,
@@ -76,7 +72,6 @@
 			"ECK120033736"
 		],
 		"promoter": "pHlyIIR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.07,
 			"K": 0.19,
@@ -93,7 +88,6 @@
 			"ECK120029600"
 		],
 		"promoter": "pSrpR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.007,
 			"K": 0.1,
@@ -110,7 +104,6 @@
 			"L3S3P31"
 		],
 		"promoter": "pAmeR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 1.4,
 			"ymin": 0.2,
@@ -127,7 +120,6 @@
 			"ECK120033737"
 		],
 		"promoter": "pPhlF",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 4.2,
 			"K": 0.23,
@@ -144,7 +136,6 @@
 			"ECK120010818"
 		],
 		"promoter": "pQacR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 12.702691,
 			"ymin": 0.09899472,
@@ -161,7 +152,6 @@
 			"ECK120015440"
 		],
 		"promoter": "pPsrA",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 1.8,
 			"K": 0.19,
@@ -178,7 +168,6 @@
 			"L3S3P11"
 		],
 		"promoter": "pBetI",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 3.8,
 			"n": 2.4,
@@ -195,7 +184,6 @@
 			"ECK120033736"
 		],
 		"promoter": "pHlyIIR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.5118261,
 			"n": 2.2411685,
@@ -212,7 +200,6 @@
 			"ECK120033737"
 		],
 		"promoter": "pPhlF",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.20127982,
 			"n": 2.3297253,
@@ -229,7 +216,6 @@
 			"ECK120010818"
 		],
 		"promoter": "pQacR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 2.4,
 			"ymax": 2.8,
@@ -246,7 +232,6 @@
 			"ECK120029600"
 		],
 		"promoter": "pSrpR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.06,
 			"n": 2.8,
@@ -263,7 +248,6 @@
 			"ECK120016170"
 		],
 		"promoter": "pIcaRA",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 1.4,
 			"ymax": 2.2,
@@ -280,7 +264,6 @@
 			"L3S3P11"
 		],
 		"promoter": "pBetI",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.09894928,
 			"ymax": 11.517904,
@@ -297,7 +280,6 @@
 			"L3S2P11"
 		],
 		"promoter": "pBM3R1",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 3.4,
 			"K": 0.04,
@@ -314,7 +296,6 @@
 			"ECK120033737"
 		],
 		"promoter": "pPhlF",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.02,
 			"K": 0.13,
@@ -331,7 +312,6 @@
 			"L3S2P24"
 		],
 		"promoter": "pLitR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.07,
 			"K": 0.05,
@@ -348,7 +328,6 @@
 			"ECK120016170"
 		],
 		"promoter": "pIcaRA",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 10.87176,
 			"K": 0.14354111,
@@ -364,7 +343,6 @@
 			"terminator_TetR"
 		],
 		"promoter": "pTet",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.008315565,
 			"ymax": 8.925729,
@@ -381,7 +359,6 @@
 			"ECK120029600"
 		],
 		"promoter": "pSrpR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 2.1,
 			"K": 0.04,
@@ -398,7 +375,6 @@
 			"L3S2P11"
 		],
 		"promoter": "pBM3R1",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 1.5545532,
 			"ymin": 0.21301645,
@@ -415,7 +391,6 @@
 			"L3S2P55"
 		],
 		"promoter": "pAmtR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 3.8,
 			"K": 0.07,
@@ -432,7 +407,6 @@
 			"ECK120033737"
 		],
 		"promoter": "pPhlF",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.03,
 			"ymax": 3.9,
@@ -449,7 +423,6 @@
 			"ECK120010818"
 		],
 		"promoter": "pQacR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"n": 2.7,
 			"K": 0.05,
@@ -466,7 +439,6 @@
 			"L3S2P11"
 		],
 		"promoter": "pBM3R1",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.26,
 			"ymin": 0.01,
@@ -483,7 +455,6 @@
 			"L3S3P31"
 		],
 		"promoter": "pAmeR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymin": 0.6615745,
 			"K": 0.14592311,
@@ -500,7 +471,6 @@
 			"L3S2P11"
 		],
 		"promoter": "pBM3R1",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 0.5,
 			"ymin": 0.005,
@@ -516,7 +486,6 @@
 			"terminator_LacI"
 		],
 		"promoter": "pLac",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"K": 0.21314542,
 			"ymin": 0.011691542,
@@ -533,7 +502,6 @@
 			"L3S2P55"
 		],
 		"promoter": "pAmtR",
-		"equation": "ymin+(ymax-ymin)/(1.0+(x/K)^n)",
 		"params": {
 			"ymax": 14.8446245,
 			"ymin": 0.11756945,

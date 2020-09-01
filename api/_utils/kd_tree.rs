@@ -5,24 +5,24 @@ use std::collections::{HashMap, HashSet};
 pub struct LeafNode {
 	pub name: String,
 	pub parent: Option<String>,
-	pub point: [f64; 2],
+	pub point: Vec<f64>,
 }
 
 impl LeafNode {
-	pub fn new(name: String, x: f64, y: f64) -> Self {
+	pub fn new(name: String, point: Vec<f64>) -> Self {
 		Self {
 			name: name,
 			parent: None,
-			point: [x, y],
+			point: point,
 		}
 	}
 
 	pub fn dist(&self, n: &LeafNode) -> f64 {
-		((n.point[0] - self.point[0]).powi(2) + (n.point[1] - self.point[1]).powi(2)).sqrt()
-	}
-
-	pub fn contains(&self, n: &LeafNode) -> bool {
-		n.point[0] > self.point[0] && n.point[1] < self.point[1]
+		let mut sum = 0.0;
+		for i in 0..self.point.len() {
+			sum += (n.point[i] - self.point[i]).powi(2)
+		}
+		sum.sqrt()
 	}
 }
 
@@ -66,8 +66,6 @@ pub struct KdTree {
 	k: u8,
 	tree: HashMap<String, Node>,
 	root: Option<String>,
-	#[serde(default)]
-	strict: bool,
 }
 
 fn get_closer<'a>(
@@ -98,6 +96,13 @@ fn get_sides(in_node: &InternalNode, point: &LeafNode, axis: usize) -> (String, 
 }
 
 impl KdTree {
+	pub fn new(k: u8) -> Self {
+		KdTree {
+			k: k,
+			tree: HashMap::new(),
+			root: None,
+		}
+	}
 	fn should_check_bad_side(
 		&self,
 		closest: Option<&LeafNode>,
@@ -107,16 +112,6 @@ impl KdTree {
 	) -> bool {
 		if closest.is_none() {
 			return true;
-		}
-
-		if self.strict {
-			if axis == 0 && (div < node.point[axis]) {
-				return false;
-			}
-
-			if axis == 1 && (div > node.point[axis]) {
-				return false;
-			}
 		}
 
 		(node.point[axis] - div).abs() < node.dist(closest.unwrap())
@@ -133,13 +128,10 @@ impl KdTree {
 
 		if node.is_leaf() {
 			let group: Vec<&str> = curr.split("_").collect();
-			if self.strict && point.contains(node.leaf()) {
-				return None;
+			if !blacklist.contains(group[1]) && !blacklist.contains(&curr) {
+				return Some(node.leaf());
 			}
-			if blacklist.contains(group[1]) {
-				return None;
-			}
-			return Some(node.leaf());
+			return None;
 		}
 
 		let axis = (depth % self.k) as usize;
@@ -155,24 +147,19 @@ impl KdTree {
 		return closest;
 	}
 
-	pub fn search(&mut self, x: f64, y: f64, blacklist: &mut HashSet<String>) -> Option<LeafNode> {
-		if self.root.as_ref().is_none() {
+	pub fn search(&self, point: Vec<f64>, blacklist: &HashSet<String>) -> Option<LeafNode> {
+		if self.root.is_none() {
 			return None;
 		}
 
 		let closest = self
 			.walk(
-				blacklist,
-				&LeafNode::new("new".to_owned(), x, y),
+				&blacklist,
+				&LeafNode::new("new".to_owned(), point),
 				self.root.as_ref().unwrap().to_owned(),
 				0,
 			)
 			.cloned();
-		if closest.is_some() {
-			let n = closest.as_ref().unwrap();
-			let group: Vec<&str> = n.name.split("_").collect();
-			blacklist.insert(group[1].to_owned());
-		}
 		closest
 	}
 }
