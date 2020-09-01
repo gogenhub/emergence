@@ -1,5 +1,5 @@
 use crate::_utils::{builder, helpers, kd_tree};
-use builder::{Gate, LogicCircuit};
+use builder::LogicCircuit;
 use colors_transform::{Color, Hsl};
 use fs_extra::file::read_to_string;
 use helpers::{
