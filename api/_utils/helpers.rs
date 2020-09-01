@@ -178,7 +178,7 @@ pub fn make_plasmid_dna(seq: &str) -> String {
 						parsed
 					})
 					.collect();
-				let index_fmt = format!("     {:>9}", (i * 60) + 1);
+				let index_fmt = format!("{:>9}", (i * 60) + 1);
 				format!("{} {}", index_fmt, ch.join(" "))
 			})
 			.collect::<Vec<String>>()
