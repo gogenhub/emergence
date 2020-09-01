@@ -270,9 +270,6 @@ impl Assembler {
 		}
 
 		let (out, x) = gate_logic(inputs, rpus, &gate.kind);
-		if curr_gate == lc.output.name {
-			return (out, x);
-		}
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
 		let bio_gate = self.gates.get(assigned_gate).unwrap();
 		let y = transfer(x, &bio_gate.params);
@@ -326,11 +323,6 @@ impl Assembler {
 			let pro = self.walk_assemble(inp, lc, assigned_gates, genetic_circuit, id);
 			inputs.push(pro);
 		}
-
-		if curr_gate == lc.output.name {
-			genetic_circuit.output.inputs = inputs;
-			return String::new();
-		}
 		*id += 1;
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
 		let bio_gate = self.gates.get(assigned_gate).unwrap();
@@ -367,13 +359,14 @@ impl Assembler {
 		};
 
 		let mut id = 0;
-		self.walk_assemble(
+		let promoter = self.walk_assemble(
 			&lc.output.name,
 			lc,
 			assigned_gates,
 			&mut genetic_circuit,
 			&mut id,
 		);
+		genetic_circuit.output.inputs.push(promoter);
 		genetic_circuit
 	}
 
@@ -462,10 +455,6 @@ impl Assembler {
 			new_on = con.max(new_on);
 			new_off = coff.min(new_off);
 			new_min = cmin.min(new_min);
-		}
-
-		if curr_gate == lc.output.name {
-			return Ok((new_on, new_off, new_min, String::new(), HashSet::new()));
 		}
 
 		let mut gbl = gate_bl.get(&curr_gate).cloned().unwrap();
