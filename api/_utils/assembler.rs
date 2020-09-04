@@ -78,12 +78,20 @@ pub struct BioGate {
 	pub params: Params,
 }
 
+#[derive(Deserialize)]
+struct Rules {
+	gates: HashMap<String, u32>,
+	promoters: HashMap<String, u32>,
+}
+
 pub struct Assembler {
 	kd: KdTree,
 	gates: HashMap<String, BioGate>,
 	parts: HashMap<String, Part>,
 	inputs: HashMap<String, Input>,
 	outputs: HashMap<String, String>,
+	rules: Rules,
+	roadblock: HashSet<String>,
 	pub loaded: bool,
 }
 
@@ -95,6 +103,11 @@ impl Assembler {
 			parts: HashMap::new(),
 			inputs: HashMap::new(),
 			outputs: HashMap::new(),
+			rules: Rules {
+				gates: HashMap::new(),
+				promoters: HashMap::new(),
+			},
+			roadblock: HashSet::new(),
 			loaded: false,
 		}
 	}
@@ -106,24 +119,32 @@ impl Assembler {
 		let parts_path = format!("{}/static/parts.json", dir.display());
 		let inputs_path = format!("{}/static/inputs.json", dir.display());
 		let outputs_path = format!("{}/static/outputs.json", dir.display());
+		let rules_path = format!("{}/static/rules.json", dir.display());
+		let roadblock_path = format!("{}/static/roadblock.json", dir.display());
 
 		let trees_f = read_to_string(tree_path).unwrap();
 		let gates_f = read_to_string(gates_path).unwrap();
 		let parts_f = read_to_string(parts_path).unwrap();
 		let inputs_f = read_to_string(inputs_path).unwrap();
 		let outputs_f = read_to_string(outputs_path).unwrap();
+		let rules_f = read_to_string(rules_path).unwrap();
+		let roadblock_f = read_to_string(roadblock_path).unwrap();
 
 		let tree: KdTree = from_str(&trees_f).unwrap();
 		let gates: HashMap<String, BioGate> = from_str(&gates_f).unwrap();
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
 		let outputs: HashMap<String, String> = from_str(&outputs_f).unwrap();
+		let rules: Rules = from_str(&rules_f).unwrap();
+		let roadblock: HashSet<String> = from_str(&roadblock_f).unwrap();
 
 		self.kd = tree;
 		self.gates = gates;
 		self.parts = parts;
 		self.inputs = inputs;
 		self.outputs = outputs;
+		self.rules = rules;
+		self.roadblock = roadblock;
 		self.loaded = true;
 	}
 
@@ -323,6 +344,11 @@ impl Assembler {
 			let pro = self.walk_assemble(inp, lc, assigned_gates, genetic_circuit, id);
 			inputs.push(pro);
 		}
+		inputs.sort_by(|a, b| {
+			let a_index = self.rules.promoters.get(a).unwrap();
+			let b_index = self.rules.promoters.get(b).unwrap();
+			a_index.cmp(b_index)
+		});
 		*id += 1;
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
 		let bio_gate = self.gates.get(assigned_gate).unwrap();
@@ -366,6 +392,11 @@ impl Assembler {
 			&mut genetic_circuit,
 			&mut id,
 		);
+		genetic_circuit.genes.sort_by(|a, b| {
+			let a_index = self.rules.gates.get(&get_group(&a.name)).unwrap();
+			let b_index = self.rules.gates.get(&get_group(&b.name)).unwrap();
+			a_index.cmp(b_index)
+		});
 		genetic_circuit.output.inputs.push(promoter);
 		genetic_circuit
 	}
@@ -462,7 +493,8 @@ impl Assembler {
 		let node = self.kd.search(vec![new_on, new_off, 1000.0], &gbl);
 
 		let (name, max_on, max_off, max_rpu) = self.get_on_off(new_on, new_off, node);
-		if max_rpu <= min {
+		let num_r = self.get_num_roadblocks(&names);
+		if max_rpu <= min || num_r > 1 {
 			if self.inputs.contains_key(&gate.inputs[0]) {
 				return Err(assign_err(
 					"Failed to find optimal genetic circuit!".to_owned(),
@@ -474,7 +506,7 @@ impl Assembler {
 			return self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min);
 		}
 
-		res_bl.insert(get_group(name.to_owned()));
+		res_bl.insert(get_group(&name));
 		assigned_gates.insert(curr_gate, name.to_owned());
 
 		Ok((max_off, max_on, new_min.min(max_rpu), name, res_bl))
@@ -490,5 +522,19 @@ impl Assembler {
 		let new_off = transfer(off, &gate.params);
 
 		(node.name, new_on, new_off, new_on / new_off)
+	}
+
+	fn get_num_roadblocks(&self, names: &Vec<String>) -> u8 {
+		let mut num = 0;
+		for name in names {
+			if name == "0_0" {
+				continue;
+			}
+			let gate = self.gates.get(name).unwrap();
+			if self.roadblock.contains(&gate.promoter) {
+				num += 1;
+			}
+		}
+		num
 	}
 }
