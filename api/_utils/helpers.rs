@@ -159,7 +159,7 @@ pub fn transfer(x: f64, params: &Params) -> f64 {
 	params.ymin + (params.ymax - params.ymin) / (1.0 + (x / params.k).powf(params.n))
 }
 
-pub fn get_group(curr: String) -> String {
+pub fn get_group(curr: &str) -> String {
 	let group: Vec<&str> = curr.split("_").collect();
 	group[1].to_owned()
 }

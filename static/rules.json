@@ -1,0 +1,33 @@
+{
+	"gates": {
+		"PhlF": 0,
+		"SrpR": 1,
+		"BM3R1": 2,
+		"BetI": 3,
+		"AmeR": 4,
+		"LitR": 5,
+		"IcaRA": 6,
+		"QacR": 7,
+		"PsrA": 8,
+		"LmrA": 9,
+		"HlyIIR": 10,
+		"AmtR": 11
+	},
+	"promoters": {
+		"pTac": 0,
+		"pBAD": 1,
+		"pSrpR": 2,
+		"pPhlF": 3,
+		"pBM3R1": 4,
+		"pQacR": 5,
+		"pTet": 6,
+		"pAmtR": 7,
+		"pBetI": 8,
+		"pIcaRA": 9,
+		"pHlyIIR": 10,
+		"pLitR": 11,
+		"pAmeR": 12,
+		"pPsrA": 13,
+		"pLmrA": 14
+	}
+}
