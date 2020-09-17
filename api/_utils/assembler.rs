@@ -1,10 +1,10 @@
 use crate::_utils::{builder, helpers, kd_tree};
-use builder::LogicCircuit;
+use builder::{LogicCircuit, Testbench};
 use colors_transform::{Color, Hsl};
 use fs_extra::file::read_to_string;
 use helpers::{
-	assign_err, gate_logic, get_group, make_plasmid_dna, make_plasmid_part, make_plasmid_title,
-	map, transfer, Error,
+	assign_err, get_group, lerp, make_plasmid_dna, make_plasmid_part, make_plasmid_title, map,
+	transfer, Error,
 };
 use kd_tree::{KdTree, LeafNode};
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,7 @@ struct Gene {
 	promoter: String,
 	color: String,
 	name: String,
+	params: Params,
 }
 
 #[derive(Serialize, Debug)]
@@ -57,7 +58,7 @@ struct OutputGene {
 #[derive(Serialize, Debug)]
 pub struct GeneticCircuit {
 	output: OutputGene,
-	inputs: Vec<String>,
+	inputs: Vec<Input>,
 	genes: Vec<Gene>,
 }
 
@@ -280,66 +281,102 @@ impl Assembler {
 		)
 	}
 
-	fn walk_simulate(
-		&self,
-		curr_gate: &str,
-		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
-		input_map: &HashMap<String, (bool, f64)>,
-	) -> (bool, f64) {
-		if input_map.contains_key(curr_gate) {
-			return input_map.get(curr_gate).cloned().unwrap();
-		}
-		let gate = lc.gates.get(curr_gate).unwrap();
-		let mut inputs = Vec::new();
-		let mut rpus = Vec::new();
-		for inp in &gate.inputs {
-			let (bit, rpu) = self.walk_simulate(inp, lc, assigned_gates, input_map);
-			inputs.push(bit);
-			rpus.push(rpu);
-		}
-
-		let (out, x) = gate_logic(inputs, rpus, &gate.kind);
-		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-		let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
-		let y = transfer(x, &bio_gate.params);
-
-		(out, y)
-	}
-
 	pub fn simulate(
 		&self,
-		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
-	) -> Vec<(String, bool, f64)> {
-		let mut results = Vec::new();
-		let len = lc.inputs.len();
-		let permutations = 2u32.pow(len as u32);
-		for num in 0..permutations {
-			let mut input_map: HashMap<String, (bool, f64)> = HashMap::new();
-			let mut signs: Vec<&str> = Vec::new();
-			for i in 0..len {
-				let name = lc.inputs[i].name.to_owned();
-				let input = self.inputs.get(&name).unwrap();
-				if num & 2u32.pow(i as u32) > 0 {
-					signs.push("+");
-					input_map.insert(name, (true, input.rpu_on));
-				} else {
-					signs.push("-");
-					input_map.insert(name, (false, input.rpu_off));
+		testbench: &Testbench,
+		gc: &GeneticCircuit,
+	) -> HashMap<String, Vec<f64>> {
+		let mut states: HashMap<String, f64> = gc
+			.inputs
+			.iter()
+			.map(|x| {
+				let inp = self.inputs.get(&x.name).unwrap();
+				(inp.promoter.to_owned(), inp.rpu_off)
+			})
+			.collect();
+		if testbench.at_breakpoints.contains_key(&0) {
+			let init_state = testbench.at_breakpoints.get(&0).unwrap();
+			for inp in &gc.inputs {
+				let val = init_state.get(&inp.name).unwrap_or(&false);
+				states.insert(
+					inp.promoter.to_owned(),
+					if *val == true {
+						inp.rpu_on
+					} else {
+						inp.rpu_off
+					},
+				);
+			}
+		}
+		let delay = 5;
+		let mut histories: HashMap<String, Vec<f64>> = HashMap::new();
+		let mut concentrations: HashMap<String, f64> = HashMap::new();
+		for (name, rpu) in states.iter() {
+			histories.insert(name.to_owned(), vec![*rpu]);
+		}
+		for gene in &gc.genes {
+			let mut rpu = 0.0f64;
+			for inp in &gene.inputs {
+				let c_rpu = states.get(inp).unwrap();
+				rpu = rpu.max(*c_rpu);
+			}
+			let bio_gate = self.gates.get(&gene.name).unwrap();
+			let y = transfer(rpu, &bio_gate.params);
+			states.insert(bio_gate.promoter.to_owned(), y);
+			histories.insert(bio_gate.promoter.to_owned(), vec![y]);
+		}
+		for i in 1..1000 {
+			if testbench.at_breakpoints.contains_key(&i) {
+				let bp = testbench.at_breakpoints.get(&i).unwrap();
+				for (inp, val) in bp {
+					let input = self.inputs.get(inp).unwrap();
+					let rpu = if *val == true {
+						input.rpu_on
+					} else {
+						input.rpu_off
+					};
+					states.insert(input.promoter.to_owned(), rpu);
 				}
 			}
-			let (out, rpu) = self.walk_simulate(&lc.output.name, lc, assigned_gates, &input_map);
-			results.push((signs.join("/"), out, rpu));
+			for inp in &gc.inputs {
+				let input_history = histories.get_mut(&inp.promoter).unwrap();
+				let val = states.get(&inp.promoter).unwrap();
+				let new_val = lerp(*input_history.last().unwrap(), *val, 0.1);
+				input_history.push(new_val);
+				let new_conc = if input_history.len() >= delay {
+					input_history.get(input_history.len() - delay).unwrap()
+				} else {
+					input_history.get(0).unwrap()
+				};
+				concentrations.insert(inp.promoter.to_owned(), *new_conc);
+			}
+			for gene in &gc.genes {
+				let mut x = 0.0f64;
+				for inp in &gene.inputs {
+					let new_x = concentrations.get(inp).unwrap();
+					x = x.max(*new_x);
+				}
+				let gate_history = histories.entry(gene.promoter.to_owned()).or_insert(vec![]);
+				let bio_gate = self.gates.get(&gene.name).unwrap();
+				let y = transfer(x, &bio_gate.params);
+				gate_history.push(y);
+				let new_conc = if gate_history.len() >= delay {
+					gate_history.get(gate_history.len() - delay).unwrap()
+				} else {
+					gate_history.get(0).unwrap()
+				};
+				concentrations.insert(gene.promoter.to_owned(), *new_conc);
+			}
 		}
-		results
+
+		histories
 	}
 
 	fn walk_assemble(
 		&self,
 		curr_gate: &str,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
+		assigned_gates: &HashMap<String, String>,
 		added_gates: &mut HashSet<String>,
 		genetic_circuit: &mut GeneticCircuit,
 		id: &mut u8,
@@ -350,7 +387,7 @@ impl Assembler {
 
 		if added_gates.contains(curr_gate) {
 			let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-			let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
+			let bio_gate = self.gates.get(assigned_gate).unwrap();
 			return bio_gate.promoter.to_owned();
 		}
 
@@ -360,17 +397,12 @@ impl Assembler {
 			let pro = self.walk_assemble(inp, lc, assigned_gates, added_gates, genetic_circuit, id);
 			inputs.push(pro);
 		}
-		inputs.sort_by(|a, b| {
-			let a_index = self.rules.promoters.get(a).unwrap();
-			let b_index = self.rules.promoters.get(b).unwrap();
-			a_index.cmp(b_index)
-		});
 		*id += 1;
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-		let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
+		let bio_gate = self.gates.get(assigned_gate).unwrap();
 
 		let color_hex = Hsl::from(
-			map(*id as f32, 0.0, assigned_gates.len() as f32, 0.0, 355.0),
+			map(*id as f64, 0.0, assigned_gates.len() as f64, 0.0, 355.0) as f32,
 			100.0,
 			50.0,
 		)
@@ -380,7 +412,8 @@ impl Assembler {
 			inputs: inputs,
 			color: color_hex,
 			promoter: bio_gate.promoter.to_owned(),
-			name: assigned_gate.name.to_owned(),
+			name: assigned_gate.to_owned(),
+			params: bio_gate.params.clone(),
 		});
 		added_gates.insert(curr_gate.to_owned());
 
@@ -390,14 +423,18 @@ impl Assembler {
 	pub fn assemble(
 		&self,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
+		assigned_gates: &HashMap<String, String>,
 	) -> GeneticCircuit {
 		let mut genetic_circuit = GeneticCircuit {
 			output: OutputGene {
 				name: lc.output.name.to_owned(),
 				inputs: Vec::new(),
 			},
-			inputs: lc.inputs.iter().map(|x| x.name.to_owned()).collect(),
+			inputs: lc
+				.inputs
+				.iter()
+				.map(|x| self.inputs.get(&x.name).cloned().unwrap())
+				.collect(),
 			genes: Vec::new(),
 		};
 
@@ -411,19 +448,27 @@ impl Assembler {
 			&mut genetic_circuit,
 			&mut id,
 		);
-		genetic_circuit.genes.sort_by(|a, b| {
-			let a_index = self.rules.gates.get(&get_group(&a.name)).unwrap();
-			let b_index = self.rules.gates.get(&get_group(&b.name)).unwrap();
-			a_index.cmp(b_index)
-		});
 		genetic_circuit.output.inputs.push(promoter);
 		genetic_circuit
 	}
 
-	pub fn assign(
-		&mut self,
-		lc: &LogicCircuit,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
+	pub fn apply_rules(&self, gc: &mut GeneticCircuit) {
+		gc.genes.sort_by(|a, b| {
+			let a_index = self.rules.gates.get(&get_group(&a.name)).unwrap();
+			let b_index = self.rules.gates.get(&get_group(&b.name)).unwrap();
+			a_index.cmp(b_index)
+		});
+
+		for gene in &mut gc.genes {
+			gene.inputs.sort_by(|a, b| {
+				let a_index = self.rules.promoters.get(a).unwrap();
+				let b_index = self.rules.promoters.get(b).unwrap();
+				a_index.cmp(b_index)
+			});
+		}
+	}
+
+	pub fn assign(&mut self, lc: &LogicCircuit) -> Result<(HashMap<String, String>, f64), Error> {
 		if !self.outputs.contains_key(&lc.output.name) {
 			return Err(assign_err(
 				format!("Output '{}' not found.", lc.output.name),
@@ -431,7 +476,6 @@ impl Assembler {
 			));
 		}
 
-		let mut inputs = HashMap::new();
 		for input in &lc.inputs {
 			if !self.inputs.contains_key(&input.name) {
 				return Err(assign_err(
@@ -439,8 +483,6 @@ impl Assembler {
 					(input.pos, input.name.len()),
 				));
 			}
-			let inp = self.inputs.get(&input.name).cloned().unwrap();
-			inputs.insert(input.name.to_owned(), inp);
 		}
 
 		let (assigned_gates, min) = self.try_walk(lc, 1.0)?;
@@ -452,7 +494,7 @@ impl Assembler {
 		&self,
 		lc: &LogicCircuit,
 		min: f64,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
+	) -> Result<(HashMap<String, String>, f64), Error> {
 		let mut assigned_gates = HashMap::new();
 
 		let initial_bl: HashSet<String> = lc.inputs.iter().map(|x| x.name.to_owned()).collect();
@@ -479,19 +521,13 @@ impl Assembler {
 		lc: &LogicCircuit,
 		ext_bl: &HashSet<String>,
 		gate_bl: &mut HashMap<String, HashSet<String>>,
-		assigned_gates: &mut HashMap<String, AssignedGate>,
+		assigned_gates: &mut HashMap<String, String>,
 		min: f64,
 	) -> Result<AssignedGate, Error> {
 		if !gate_bl.contains_key(&curr_gate) {
 			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
 		}
-		if assigned_gates.contains_key(&curr_gate) {
-			let ag = assigned_gates.get(&curr_gate).unwrap();
-			let gbl = gate_bl.get(&curr_gate).unwrap();
-			if !gbl.contains(&ag.name) {
-				return Ok(ag.clone());
-			}
-		}
+
 		if self.inputs.contains_key(&curr_gate) {
 			let in_rpus = self.inputs.get(&curr_gate).unwrap();
 			return Ok(AssignedGate {
@@ -530,8 +566,8 @@ impl Assembler {
 					(0, 0),
 				));
 			}
-			let currgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
-			currgbl.insert(names[0].to_owned());
+			let parentgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
+			parentgbl.insert(names[0].to_owned());
 			return self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min);
 		}
 
@@ -543,7 +579,7 @@ impl Assembler {
 			min: new_min.min(max_rpu),
 			bl: res_bl,
 		};
-		assigned_gates.insert(curr_gate, ng.clone());
+		assigned_gates.insert(curr_gate, name);
 
 		Ok(ng)
 	}

@@ -10,7 +10,7 @@ mod _utils;
 
 use _utils::{assembler, builder, helpers, lexer, parser};
 use assembler::{Assembler, GeneticCircuit};
-use helpers::{Error, Warning};
+use helpers::Error;
 use lambda_runtime::{error::HandlerError, start, Context};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -22,13 +22,12 @@ static ASSIGNER: Lazy<Mutex<Assembler>> = Lazy::new(|| Mutex::new(Assembler::new
 #[derive(Serialize, Debug)]
 struct CompileResult {
 	score: f64,
-	simulation: Vec<(String, bool, f64)>,
 	gc: GeneticCircuit,
 	gates_dna: String,
 	out_dna: String,
 	gates_plasmid: String,
 	out_plasmid: String,
-	warnings: Vec<Warning>,
+	simulation: HashMap<String, Vec<f64>>,
 }
 
 #[derive(Deserialize)]
@@ -72,25 +71,26 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	let lx = lexer::LexerIter::new(emergence.chars());
 	let prs = parser::ParserIter::new(lx);
 	let mut bld = builder::LogicCircuitBuilder::new(prs);
-	let warnings = bld.build_parse_tree()?;
-	let lc = bld.build_logic_circut()?;
+	bld.build_parse_tree()?;
+	let lc = bld.build_logic_circut();
+	let tb = bld.build_testbench();
 	let mut ass = ASSIGNER.lock().unwrap();
 	if !ass.loaded {
 		ass.load();
 	}
 	let (ass_gates, score) = ass.assign(&lc)?;
-	let gc = ass.assemble(&lc, &ass_gates);
-	let pred = ass.simulate(&lc, &ass_gates);
+	let mut gc = ass.assemble(&lc, &ass_gates);
+	let simulation = ass.simulate(&tb, &gc);
+	ass.apply_rules(&mut gc);
 	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = ass.make_dna(&gc);
 	Ok(CompileResult {
-		score: score,
-		gc: gc,
-		simulation: pred,
-		gates_dna: gates_dna,
-		out_dna: out_dna,
-		gates_plasmid: gates_plasmid,
-		out_plasmid: out_plasmid,
-		warnings,
+		score,
+		gc,
+		gates_dna,
+		out_dna,
+		gates_plasmid,
+		out_plasmid,
+		simulation,
 	})
 }
 
