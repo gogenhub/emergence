@@ -3,7 +3,7 @@ use crate::_utils::{assembler, builder, parser};
 use assembler::{Params, PartKind};
 use builder::GateKind;
 use chrono::Utc;
-use parser::Arg;
+use parser::{Arg, BreakpointKind};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -17,18 +17,6 @@ pub enum ErrorKind {
 #[derive(Serialize, Debug)]
 pub struct Error {
 	pub kind: ErrorKind,
-	pub message: String,
-	pub pos: (usize, usize),
-}
-
-#[derive(Serialize, Debug)]
-pub enum WarningKind {
-	UnusedVar,
-}
-
-#[derive(Serialize, Debug)]
-pub struct Warning {
-	pub kind: WarningKind,
 	pub message: String,
 	pub pos: (usize, usize),
 }
@@ -88,26 +76,18 @@ pub fn format_ret_for_gate(from: &Arg, rets_map: &HashMap<String, String>, id: &
 		.to_owned()
 }
 
-pub fn gate_logic(inputs: Vec<bool>, rpus: Vec<f64>, kind: &GateKind) -> (bool, f64) {
-	match kind {
-		GateKind::NOT => (!inputs[0], rpus[0]),
-		GateKind::NOR => {
-			for inp in inputs {
-				if inp {
-					return (false, rpus[0].max(rpus[1]));
-				}
-			}
-			(true, rpus[0].max(rpus[1]))
-		}
-		_ => panic!("wtf"),
-	}
-}
-
 pub fn get_gate_kind(symbol: &str) -> GateKind {
 	match symbol {
 		"~" => GateKind::NOT,
 		"~|" => GateKind::NOR,
 		_ => GateKind::Unknown,
+	}
+}
+
+pub fn get_breakpoint_kind(symbol: &str) -> BreakpointKind {
+	match symbol {
+		"@" => BreakpointKind::At,
+		_ => BreakpointKind::Unknown,
 	}
 }
 
@@ -122,14 +102,6 @@ pub fn compile_err(message: String, pos: (usize, usize)) -> Error {
 pub fn assign_err(message: String, pos: (usize, usize)) -> Error {
 	Error {
 		kind: ErrorKind::AssignError,
-		message: message,
-		pos: pos,
-	}
-}
-
-pub fn uw(message: String, pos: (usize, usize)) -> Warning {
-	Warning {
-		kind: WarningKind::UnusedVar,
 		message: message,
 		pos: pos,
 	}
@@ -151,12 +123,46 @@ pub fn syntax_err(message: String, from: usize, len: usize) -> Error {
 	}
 }
 
-pub fn map(num: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
+pub fn map(num: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) -> f64 {
 	(num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 }
 
 pub fn transfer(x: f64, params: &Params) -> f64 {
 	params.ymin + (params.ymax - params.ymin) / (1.0 + (x / params.k).powf(params.n))
+}
+
+pub fn lerp(curr: f64, target: f64, step: f64) -> f64 {
+	step * (target - curr) + curr
+}
+
+pub struct MotionParams {
+	pos_pos_coef: f64,
+	pos_vel_coef: f64,
+	vel_pos_coef: f64,
+	vel_vel_coef: f64,
+}
+
+pub fn damp(state: f64, velocity: f64, target_state: f64, params: &MotionParams) -> (f64, f64) {
+	let old_pos = state - target_state;
+	let old_vel = velocity;
+
+	let new_state = old_pos * params.pos_pos_coef + old_vel * params.pos_vel_coef + target_state;
+	let new_velocity = old_pos * params.vel_pos_coef + old_vel * params.vel_vel_coef;
+
+	(new_state, new_velocity)
+}
+
+pub fn damp_params(angular_freq: f64, delta_time: f64) -> MotionParams {
+	let exp_term = (-angular_freq * delta_time).exp();
+	let time_exp = delta_time * exp_term;
+	let time_exp_freq = time_exp * angular_freq;
+
+	MotionParams {
+		pos_pos_coef: time_exp_freq + exp_term,
+		pos_vel_coef: time_exp,
+		vel_pos_coef: -angular_freq * time_exp_freq,
+		vel_vel_coef: -time_exp_freq + exp_term,
+	}
 }
 
 pub fn get_group(curr: &str) -> String {

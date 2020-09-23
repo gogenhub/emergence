@@ -8,6 +8,8 @@ pub enum TokenKind {
 	Operation,
 	Symbol,
 	Keyword,
+	Number,
+	Bool,
 	Unknown,
 }
 
@@ -45,11 +47,13 @@ impl<'a> Iterator for LexerIter<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let chars = Regex::new("[a-zA-Z]").unwrap();
+		let numbers = Regex::new("[0-9]").unwrap();
 		while let Some((pos, ch)) = self.chars.peek().cloned() {
 			let group = match ch {
 				'~' => self.scan_next("[|&^]"),
 				'-' => self.scan_next(">"),
 				c if chars.is_match(&c.to_string()) => self.scan_next("[a-zA-Z0-9]"),
+				c if numbers.is_match(&c.to_string()) => self.scan_next("[0-9]"),
 				c => {
 					self.chars.next();
 					c.to_string()
@@ -57,15 +61,21 @@ impl<'a> Iterator for LexerIter<'a> {
 			};
 			let res = match group.as_str() {
 				"\n" | "\t" | " " => None,
-				"let" | "fn" | "gene" => Some((TokenKind::Keyword, group.to_owned(), pos)),
-				"(" | ")" | "{" | "}" | "," | ";" | "=" | ":" | "->" => {
+				"let" | "func" | "event" | "test" => {
+					Some((TokenKind::Keyword, group.to_owned(), pos))
+				}
+				"(" | ")" | "{" | "}" | "," | ";" | "=" | "->" | "@" => {
 					Some((TokenKind::Sign, group.to_owned(), pos))
 				}
 				"~" | "~|" | "~&" | "~^" | "|" | "&" | "^" => {
 					Some((TokenKind::Operation, group.to_owned(), pos))
 				}
+				"true" | "false" => Some((TokenKind::Bool, group.to_owned(), pos)),
 				c if chars.is_match(&c.to_string()) => {
 					Some((TokenKind::Symbol, group.to_owned(), pos))
+				}
+				c if numbers.is_match(&c.to_string()) => {
+					Some((TokenKind::Number, group.to_owned(), pos))
 				}
 				_ => Some((TokenKind::Unknown, group.to_owned(), pos)),
 			};

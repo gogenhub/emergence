@@ -1,5 +1,5 @@
 use crate::_utils::{helpers, lexer};
-use helpers::{eof, syntax_err, Error};
+use helpers::{eof, get_breakpoint_kind, syntax_err, Error};
 use lexer::{LexerIter, TokenKind};
 use std::iter::Peekable;
 
@@ -36,20 +36,50 @@ pub struct Expression {
 	pub op: Operation,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DefKind {
-	Gene,
-	Function,
-}
-
 #[derive(Debug)]
-pub struct Def {
-	pub kind: DefKind,
+pub struct Function {
 	pub name: String,
 	pub pos: usize,
 	pub params: Vec<Arg>,
 	pub ret: Arg,
 	pub body: Vec<Expression>,
+}
+
+#[derive(Debug)]
+pub enum Def {
+	Function(Function),
+	Test(Test),
+}
+
+#[derive(Debug)]
+pub struct Assignment {
+	pub name: String,
+	pub pos: usize,
+	pub value: bool,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BreakpointKind {
+	At,
+	Unknown,
+}
+
+#[derive(Debug)]
+pub struct Breakpoint {
+	pub name: String,
+	pub pos: usize,
+	pub kind: BreakpointKind,
+	pub time: u32,
+	pub assignments: Vec<Assignment>,
+}
+
+#[derive(Debug)]
+pub struct Test {
+	pub pos: usize,
+	pub name: String,
+	pub params: Vec<Arg>,
+	pub ret: Arg,
+	pub body: Vec<Breakpoint>,
 }
 
 pub struct ParserIter<'a> {
@@ -80,14 +110,7 @@ impl<'a> ParserIter<'a> {
 				pos: name_pos,
 			});
 			let (sep_type, sep, sep_pos) = self.tokens.next().ok_or(eof())?;
-			if sep_type != TokenKind::Sign {
-				return Err(syntax_err(
-					format!("Expected token ',' or ')', got: '{}'.", sep),
-					sep_pos,
-					sep.len(),
-				));
-			}
-			if sep != "," && sep != ")" {
+			if sep_type != TokenKind::Sign || (sep != "," && sep != ")") {
 				return Err(syntax_err(
 					format!("Expected token ',' or ')', got: '{}'.", sep),
 					sep_pos,
@@ -276,7 +299,7 @@ impl<'a> ParserIter<'a> {
 		Ok(expressions)
 	}
 
-	fn parse_def(&mut self, def_kind: DefKind) -> Result<(String, Def), Error> {
+	fn parse_func(&mut self) -> Result<Def, Error> {
 		let (name_token_type, name, name_pos) = self.tokens.next().ok_or(eof())?;
 		if name_token_type != TokenKind::Symbol {
 			return Err(syntax_err(
@@ -303,12 +326,12 @@ impl<'a> ParserIter<'a> {
 			));
 		}
 
-		let (arrow_token_type, arrow_token, arrow_token_pos) = self.tokens.next().ok_or(eof())?;
-		if arrow_token_type != TokenKind::Sign || arrow_token != "->" {
+		let (outs_token_type, outs_token, outs_token_pos) = self.tokens.next().ok_or(eof())?;
+		if outs_token_type != TokenKind::Sign || outs_token != "->" {
 			return Err(syntax_err(
-				format!("Expected sign '->', got: '{}'.", arrow_token),
-				arrow_token_pos,
-				arrow_token.len(),
+				format!("Expected sign '->', got: '{}'.", outs_token),
+				outs_token_pos,
+				outs_token.len(),
 			));
 		}
 
@@ -335,41 +358,213 @@ impl<'a> ParserIter<'a> {
 			));
 		}
 
-		Ok((
-			name.to_owned(),
-			Def {
-				name: name,
-				kind: def_kind,
-				pos: name_pos,
-				params: args,
-				ret: Arg {
-					name: retr_token,
-					pos: retr_token_pos,
-				},
-				body: expressions,
+		Ok(Def::Function(Function {
+			name: name,
+			pos: name_pos,
+			params: args,
+			ret: Arg {
+				name: retr_token,
+				pos: retr_token_pos,
 			},
-		))
+			body: expressions,
+		}))
+	}
+
+	fn parse_assignment(&mut self) -> Result<Assignment, Error> {
+		let (token_type, token, token_pos) = self.tokens.next().ok_or(eof())?;
+		if token_type != TokenKind::Symbol {
+			return Err(syntax_err(
+				format!("Expected symbol , got: '{}'.", token),
+				token_pos,
+				token.len(),
+			));
+		}
+		let (equal_type, equal, equal_pos) = self.tokens.next().ok_or(eof())?;
+		if equal_type != TokenKind::Sign && equal != "=" {
+			return Err(syntax_err(
+				format!("Expected sign '=', got: '{}'.", equal),
+				equal_pos,
+				equal.len(),
+			));
+		}
+
+		let (bool_type, bool_token, bool_pos) = self.tokens.next().ok_or(eof())?;
+		if bool_type != TokenKind::Bool {
+			return Err(syntax_err(
+				format!("Expected bool value, got: '{}'.", bool_token),
+				bool_pos,
+				bool_token.len(),
+			));
+		}
+
+		let (eol_token_type, eol_token, eol_pos) = self.tokens.next().ok_or(eof())?;
+		if eol_token_type != TokenKind::Sign || eol_token != ";" {
+			return Err(syntax_err(
+				format!("Expected sign ';', got: '{}'.", eol_token),
+				eol_pos,
+				eol_token.len(),
+			));
+		}
+
+		Ok(Assignment {
+			name: token,
+			pos: token_pos,
+			value: bool_token.parse().unwrap(),
+		})
+	}
+
+	fn parse_breakpoint(&mut self) -> Result<Breakpoint, Error> {
+		let (token_type, token, token_pos) = self.tokens.next().ok_or(eof())?;
+		if token_type != TokenKind::Sign {
+			return Err(syntax_err(
+				format!("Expected sign, got: '{}'.", token),
+				token_pos,
+				token.len(),
+			));
+		}
+
+		let (time_type, time, time_pos) = self.tokens.next().ok_or(eof())?;
+		if time_type != TokenKind::Number {
+			return Err(syntax_err(
+				format!("Expected integer value, got: '{}'.", time),
+				time_pos,
+				time.len(),
+			));
+		}
+
+		let mut assignments = Vec::new();
+		while let Some((kind, _, _)) = self.tokens.peek() {
+			if *kind != TokenKind::Symbol {
+				break;
+			}
+
+			let ass = self.parse_assignment()?;
+			assignments.push(ass);
+		}
+
+		let kind = get_breakpoint_kind(&token);
+		let parsed_time = time.parse::<u32>().unwrap();
+
+		Ok(Breakpoint {
+			name: token,
+			pos: token_pos,
+			kind: kind,
+			time: parsed_time,
+			assignments: assignments,
+		})
+	}
+
+	fn parse_breakpoints(&mut self) -> Result<Vec<Breakpoint>, Error> {
+		let mut breakpoints = Vec::new();
+		while let Some((kind, token, _)) = self.tokens.peek() {
+			if *kind == TokenKind::Sign && token == "}" {
+				break;
+			}
+
+			let exp = self.parse_breakpoint()?;
+			breakpoints.push(exp);
+		}
+
+		let (kind, token, pos) = self.tokens.next().ok_or(eof())?;
+		if kind != TokenKind::Sign && token != "}" {
+			return Err(syntax_err(
+				format!("Expected a sign '}}', got: '{}'.", token),
+				pos,
+				token.len(),
+			));
+		}
+		Ok(breakpoints)
+	}
+
+	fn parse_test(&mut self) -> Result<Def, Error> {
+		let (name_token_type, name, name_pos) = self.tokens.next().ok_or(eof())?;
+		if name_token_type != TokenKind::Symbol {
+			return Err(syntax_err(
+				format!("Expected symbol, got: '{}'.", name),
+				name_pos,
+				name.len(),
+			));
+		}
+
+		let (arg_token_type, arg_token, arg_token_pos) = self.tokens.next().ok_or(eof())?;
+		let mut args = Vec::new();
+		if arg_token_type == TokenKind::Sign && arg_token == "(" {
+			args = self.parse_args()?;
+		} else if arg_token_type == TokenKind::Symbol {
+			args.push(Arg {
+				name: arg_token.clone(),
+				pos: arg_token_pos,
+			});
+		} else {
+			return Err(syntax_err(
+				format!("Expected symbol or list of symbols, got: '{}'.", arg_token),
+				arg_token_pos,
+				arg_token.len(),
+			));
+		}
+
+		let (outs_token_type, outs_token, outs_token_pos) = self.tokens.next().ok_or(eof())?;
+		if outs_token_type != TokenKind::Sign || outs_token != "->" {
+			return Err(syntax_err(
+				format!("Expected sign '->', got: '{}'.", outs_token),
+				outs_token_pos,
+				outs_token.len(),
+			));
+		}
+
+		let (retr_token_type, retr_token, retr_token_pos) = self.tokens.next().ok_or(eof())?;
+		let retr_token_len = retr_token.len();
+		if retr_token_type != TokenKind::Symbol {
+			return Err(syntax_err(
+				format!("Expected symbol, got: '{}'.", retr_token),
+				retr_token_pos,
+				retr_token_len,
+			));
+		}
+
+		let breakpoints;
+		let (curly_braces_token_type, curly_braces_token, curly_braces_token_pos) =
+			self.tokens.next().ok_or(eof())?;
+		if curly_braces_token_type == TokenKind::Sign && curly_braces_token == "{" {
+			breakpoints = self.parse_breakpoints()?;
+		} else {
+			return Err(syntax_err(
+				format!("Expected sign '{{', got: '{}'.", curly_braces_token),
+				curly_braces_token_pos,
+				curly_braces_token.len(),
+			));
+		}
+
+		Ok(Def::Test(Test {
+			name: name,
+			pos: name_pos,
+			params: args,
+			ret: Arg {
+				name: retr_token,
+				pos: retr_token_pos,
+			},
+			body: breakpoints,
+		}))
 	}
 }
 
 impl<'a> Iterator for ParserIter<'a> {
-	type Item = Result<(String, Def), Error>;
+	type Item = Result<Def, Error>;
 
-	fn next(&mut self) -> Option<Result<(String, Def), Error>> {
+	fn next(&mut self) -> Option<Result<Def, Error>> {
 		while let Some((token_kind, token, pos)) = self.tokens.next() {
-			if token_kind != TokenKind::Keyword || (token != "fn" && token != "gene") {
+			if token_kind != TokenKind::Keyword || (token != "func" && token != "test") {
 				return Some(Err(syntax_err(
-					format!("Expected token 'fn' or 'gene', found: '{}'.", token),
+					format!("Expected token 'func' or 'test', found: '{}'.", token),
 					pos,
 					token.len(),
 				)));
 			}
-			let kind = if token == "fn" {
-				DefKind::Function
+			if token == "func" {
+				return Some(self.parse_func());
 			} else {
-				DefKind::Gene
+				return Some(self.parse_test());
 			};
-			return Some(self.parse_def(kind));
 		}
 		None
 	}
