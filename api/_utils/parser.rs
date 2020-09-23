@@ -327,9 +327,9 @@ impl<'a> ParserIter<'a> {
 		}
 
 		let (outs_token_type, outs_token, outs_token_pos) = self.tokens.next().ok_or(eof())?;
-		if outs_token_type != TokenKind::Sign || outs_token != ":" {
+		if outs_token_type != TokenKind::Sign || outs_token != "->" {
 			return Err(syntax_err(
-				format!("Expected sign ':', got: '{}'.", outs_token),
+				format!("Expected sign '->', got: '{}'.", outs_token),
 				outs_token_pos,
 				outs_token.len(),
 			));
@@ -504,9 +504,9 @@ impl<'a> ParserIter<'a> {
 		}
 
 		let (outs_token_type, outs_token, outs_token_pos) = self.tokens.next().ok_or(eof())?;
-		if outs_token_type != TokenKind::Sign || outs_token != ":" {
+		if outs_token_type != TokenKind::Sign || outs_token != "->" {
 			return Err(syntax_err(
-				format!("Expected sign ':', got: '{}'.", outs_token),
+				format!("Expected sign '->', got: '{}'.", outs_token),
 				outs_token_pos,
 				outs_token.len(),
 			));

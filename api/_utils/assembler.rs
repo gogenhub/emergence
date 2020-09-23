@@ -3,8 +3,8 @@ use builder::{LogicCircuit, Testbench};
 use colors_transform::{Color, Hsl};
 use fs_extra::file::read_to_string;
 use helpers::{
-	assign_err, get_group, lerp, make_plasmid_dna, make_plasmid_part, make_plasmid_title, map,
-	transfer, Error,
+	assign_err, damp, damp_params, get_group, lerp, make_plasmid_dna, make_plasmid_part,
+	make_plasmid_title, map, transfer, Error,
 };
 use kd_tree::{KdTree, LeafNode};
 use serde::{Deserialize, Serialize};
@@ -286,90 +286,94 @@ impl Assembler {
 		testbench: &Testbench,
 		gc: &GeneticCircuit,
 	) -> HashMap<String, Vec<f64>> {
-		let mut states: HashMap<String, f64> = gc
-			.inputs
-			.iter()
-			.map(|x| {
-				let inp = self.inputs.get(&x.name).unwrap();
-				(inp.promoter.to_owned(), inp.rpu_off)
-			})
-			.collect();
-		if testbench.at_breakpoints.contains_key(&0) {
-			let init_state = testbench.at_breakpoints.get(&0).unwrap();
-			for inp in &gc.inputs {
-				let val = init_state.get(&inp.name).unwrap_or(&false);
-				states.insert(
-					inp.promoter.to_owned(),
-					if *val == true {
-						inp.rpu_on
-					} else {
-						inp.rpu_off
-					},
-				);
-			}
-		}
-		let delay = 5;
-		let mut histories: HashMap<String, Vec<f64>> = HashMap::new();
-		let mut concentrations: HashMap<String, f64> = HashMap::new();
-		for (name, rpu) in states.iter() {
-			histories.insert(name.to_owned(), vec![*rpu]);
+		let delay = 50;
+		let growth_rate = 0.1;
+		let params = damp_params(10.0, 0.01);
+
+		let mut input_targets: HashMap<String, f64> = HashMap::new();
+		let mut history: HashMap<String, Vec<f64>> = HashMap::new();
+		let mut lerp_states: HashMap<String, f64> = HashMap::new();
+		let mut damp_states: HashMap<String, (f64, f64)> = HashMap::new();
+		let mut final_hist: HashMap<String, Vec<f64>> = HashMap::new();
+
+		for inp in &gc.inputs {
+			input_targets.insert(inp.promoter.to_owned(), inp.rpu_off);
+			history.insert(inp.promoter.to_owned(), vec![inp.rpu_off]);
+			lerp_states.insert(inp.promoter.to_owned(), inp.rpu_off);
+			damp_states.insert(inp.promoter.to_owned(), (inp.rpu_off, 0.0));
+			final_hist.insert(inp.promoter.to_owned(), vec![inp.rpu_off]);
 		}
 		for gene in &gc.genes {
-			let mut rpu = 0.0f64;
+			let mut max = 0.0f64;
 			for inp in &gene.inputs {
-				let c_rpu = states.get(inp).unwrap();
-				rpu = rpu.max(*c_rpu);
+				let inp_state = input_targets.get(inp).unwrap();
+				max = max.max(*inp_state);
 			}
-			let bio_gate = self.gates.get(&gene.name).unwrap();
-			let y = transfer(rpu, &bio_gate.params);
-			states.insert(bio_gate.promoter.to_owned(), y);
-			histories.insert(bio_gate.promoter.to_owned(), vec![y]);
+			let rpu = transfer(max, &gene.params);
+			input_targets.insert(gene.promoter.to_owned(), rpu);
+			history.insert(gene.promoter.to_owned(), vec![rpu]);
+			lerp_states.insert(gene.promoter.to_owned(), rpu);
+			damp_states.insert(gene.promoter.to_owned(), (rpu, 0.0));
+			final_hist.insert(gene.promoter.to_owned(), vec![rpu]);
 		}
-		for i in 1..1000 {
+		for i in 0..1000 {
 			if testbench.at_breakpoints.contains_key(&i) {
 				let bp = testbench.at_breakpoints.get(&i).unwrap();
-				for (inp, val) in bp {
-					let input = self.inputs.get(inp).unwrap();
-					let rpu = if *val == true {
-						input.rpu_on
-					} else {
-						input.rpu_off
-					};
-					states.insert(input.promoter.to_owned(), rpu);
+				for (name, val) in bp {
+					let inp = self.inputs.get(name).unwrap();
+					input_targets.insert(
+						inp.promoter.to_owned(),
+						if *val == true {
+							inp.rpu_on
+						} else {
+							inp.rpu_off
+						},
+					);
 				}
 			}
+
 			for inp in &gc.inputs {
-				let input_history = histories.get_mut(&inp.promoter).unwrap();
-				let val = states.get(&inp.promoter).unwrap();
-				let new_val = lerp(*input_history.last().unwrap(), *val, 0.1);
-				input_history.push(new_val);
-				let new_conc = if input_history.len() >= delay {
-					input_history.get(input_history.len() - delay).unwrap()
-				} else {
-					input_history.get(0).unwrap()
-				};
-				concentrations.insert(inp.promoter.to_owned(), *new_conc);
+				let target = input_targets.get(&inp.promoter).unwrap();
+				let input_history = history.get_mut(&inp.promoter).unwrap();
+				input_history.push(*target);
+
+				let p = lerp_states.get(&inp.promoter).unwrap();
+				let (q, vel) = damp_states.get(&inp.promoter).unwrap();
+				let new_p = lerp(*p, *target, growth_rate);
+				let (new_q, new_vel) = damp(*q, *vel, *p, &params);
+				lerp_states.insert(inp.promoter.to_owned(), new_p);
+				damp_states.insert(inp.promoter.to_owned(), (new_q, new_vel));
+
+				let final_inp_hist = final_hist.get_mut(&inp.promoter).unwrap();
+				final_inp_hist.push(new_q);
 			}
+
 			for gene in &gc.genes {
-				let mut x = 0.0f64;
+				let mut target = 0.0f64;
 				for inp in &gene.inputs {
-					let new_x = concentrations.get(inp).unwrap();
-					x = x.max(*new_x);
+					let input_history = history.get(inp).unwrap();
+					let rpu = input_history
+						.get((input_history.len() as i32 - delay).max(0) as usize)
+						.unwrap();
+					target = target.max(*rpu);
 				}
-				let gate_history = histories.entry(gene.promoter.to_owned()).or_insert(vec![]);
-				let bio_gate = self.gates.get(&gene.name).unwrap();
-				let y = transfer(x, &bio_gate.params);
-				gate_history.push(y);
-				let new_conc = if gate_history.len() >= delay {
-					gate_history.get(gate_history.len() - delay).unwrap()
-				} else {
-					gate_history.get(0).unwrap()
-				};
-				concentrations.insert(gene.promoter.to_owned(), *new_conc);
+
+				let gene_history = history.get_mut(&gene.promoter).unwrap();
+				gene_history.push(target);
+
+				let p = lerp_states.get(&gene.promoter).unwrap();
+				let (q, vel) = damp_states.get(&gene.promoter).unwrap();
+				let new_p = lerp(*p, target, growth_rate);
+				let (new_q, new_vel) = damp(*q, *vel, *p, &params);
+				lerp_states.insert(gene.promoter.to_owned(), new_p);
+				damp_states.insert(gene.promoter.to_owned(), (new_q, new_vel));
+
+				let final_inp_hist = final_hist.get_mut(&gene.promoter).unwrap();
+				final_inp_hist.push(new_q);
 			}
 		}
 
-		histories
+		final_hist
 	}
 
 	fn walk_assemble(

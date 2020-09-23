@@ -51,6 +51,7 @@ impl<'a> Iterator for LexerIter<'a> {
 		while let Some((pos, ch)) = self.chars.peek().cloned() {
 			let group = match ch {
 				'~' => self.scan_next("[|&^]"),
+				'-' => self.scan_next(">"),
 				c if chars.is_match(&c.to_string()) => self.scan_next("[a-zA-Z0-9]"),
 				c if numbers.is_match(&c.to_string()) => self.scan_next("[0-9]"),
 				c => {
@@ -63,7 +64,7 @@ impl<'a> Iterator for LexerIter<'a> {
 				"let" | "func" | "event" | "test" => {
 					Some((TokenKind::Keyword, group.to_owned(), pos))
 				}
-				"(" | ")" | "{" | "}" | "," | ";" | "=" | ":" | "@" => {
+				"(" | ")" | "{" | "}" | "," | ";" | "=" | "->" | "@" => {
 					Some((TokenKind::Sign, group.to_owned(), pos))
 				}
 				"~" | "~|" | "~&" | "~^" | "|" | "&" | "^" => {
