@@ -46,7 +46,6 @@ struct Gene {
 	promoter: String,
 	color: String,
 	name: String,
-	params: Params,
 }
 
 #[derive(Serialize, Debug)]
@@ -145,15 +144,30 @@ impl Assembler {
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
 		let outputs: HashMap<String, String> = from_str(&outputs_f).unwrap();
-		let rules: Rules = from_str(&rules_f).unwrap();
+		let rules: HashMap<String, Vec<String>> = from_str(&rules_f).unwrap();
 		let roadblock: HashSet<String> = from_str(&roadblock_f).unwrap();
+
+		let gate_rules = rules.get("gates").unwrap();
+		let promoter_rules = rules.get("promoters").unwrap();
+		let new_rules: Rules = Rules {
+			gates: gate_rules
+				.iter()
+				.enumerate()
+				.map(|(i, name)| (name.to_owned(), i as u32))
+				.collect(),
+			promoters: promoter_rules
+				.iter()
+				.enumerate()
+				.map(|(i, name)| (name.to_owned(), i as u32))
+				.collect(),
+		};
 
 		self.kd = tree;
 		self.gates = gates;
 		self.parts = parts;
 		self.inputs = inputs;
+		self.rules = new_rules;
 		self.outputs = outputs;
-		self.rules = rules;
 		self.roadblock = roadblock;
 		self.loaded = true;
 	}
@@ -309,7 +323,8 @@ impl Assembler {
 				let inp_state = input_targets.get(inp).unwrap();
 				max = max.max(*inp_state);
 			}
-			let rpu = transfer(max, &gene.params);
+			let gate = self.gates.get(&gene.name).unwrap();
+			let rpu = transfer(max, &gate.params);
 			input_targets.insert(gene.promoter.to_owned(), rpu);
 			history.insert(gene.promoter.to_owned(), vec![rpu]);
 			lerp_states.insert(gene.promoter.to_owned(), rpu);
@@ -349,14 +364,16 @@ impl Assembler {
 			}
 
 			for gene in &gc.genes {
-				let mut target = 0.0f64;
+				let mut input_rpu = 0.0f64;
 				for inp in &gene.inputs {
 					let input_history = history.get(inp).unwrap();
 					let rpu = input_history
 						.get((input_history.len() as i32 - delay).max(0) as usize)
 						.unwrap();
-					target = target.max(*rpu);
+					input_rpu = input_rpu.max(*rpu);
 				}
+				let gate = self.gates.get(&gene.name).unwrap();
+				let target = transfer(input_rpu, &gate.params);
 
 				let gene_history = history.get_mut(&gene.promoter).unwrap();
 				gene_history.push(target);
@@ -417,7 +434,6 @@ impl Assembler {
 			color: color_hex,
 			promoter: bio_gate.promoter.to_owned(),
 			name: assigned_gate.to_owned(),
-			params: bio_gate.params.clone(),
 		});
 		added_gates.insert(curr_gate.to_owned());
 
@@ -545,8 +561,10 @@ impl Assembler {
 
 		let gate = lc.gates.get(&curr_gate).unwrap();
 		let mut res_bl = ext_bl.clone();
-		let (mut new_on, mut new_off, mut new_min, mut names): (f64, f64, f64, Vec<String>) =
-			(0.0, f64::MAX, f64::MAX, vec![]);
+		let mut new_on = 0.0;
+		let mut new_off = f64::MAX;
+		let mut new_min = f64::MAX;
+		let mut names: Vec<String> = Vec::new();
 		for inp in &gate.inputs {
 			let ass_gate =
 				self.walk_back(inp.to_owned(), lc, &res_bl, gate_bl, assigned_gates, min)?;
@@ -570,16 +588,19 @@ impl Assembler {
 					(0, 0),
 				));
 			}
+			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
+
 			let parentgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
 			parentgbl.insert(names[0].to_owned());
+
 			return self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min);
 		}
 
 		res_bl.insert(get_group(&name));
 		let ng = AssignedGate {
 			name: name.to_owned(),
-			on: max_off,
-			off: max_on,
+			on: max_on,
+			off: max_off,
 			min: new_min.min(max_rpu),
 			bl: res_bl,
 		};
@@ -594,10 +615,10 @@ impl Assembler {
 		}
 		let node = node.unwrap();
 		let gate = self.gates.get(&node.name).unwrap();
-		let new_on = transfer(on, &gate.params);
-		let new_off = transfer(off, &gate.params);
+		let new_off = transfer(on, &gate.params);
+		let new_on = transfer(off, &gate.params);
 
-		(node.name, new_on, new_off, new_on / new_off)
+		(node.name, new_on, new_off, new_off / new_on)
 	}
 
 	fn get_num_roadblocks(&self, names: &Vec<String>) -> u8 {
