@@ -269,8 +269,18 @@ impl<'a> LogicCircuitBuilder<'a> {
 			for ass in &bp.assignments {
 				if assignments.contains(&ass.name) {
 					return Err(compile_err(
-						format!("Unknown breakpoint type '{}'.", bp.time),
-						(test.ret.pos, test.ret.name.len()),
+						format!(
+							"Assignment for '{}' already exist for '{}' breakpoint.",
+							ass.name, bp.time
+						),
+						(ass.pos, ass.name.len()),
+					));
+				}
+
+				if !params_map.contains_key(&ass.name) {
+					return Err(compile_err(
+						format!("Parameter '{}' not found.", ass.name),
+						(ass.pos, ass.name.len()),
 					));
 				}
 
@@ -355,7 +365,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 					let ins = format_args_for_gate(&op.args, &args_map, id);
 					let out = format_ret_for_gate(&exp.var, &rets_map, id);
 					gates.insert(
-						out,
+						out.to_owned(),
 						Gate {
 							kind: kind,
 							inputs: ins,
