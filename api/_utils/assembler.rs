@@ -85,6 +85,7 @@ pub struct AssignedGate {
 	min: f64,
 	name: String,
 	bl: HashSet<String>,
+	clear: bool,
 }
 
 #[derive(Deserialize)]
@@ -397,7 +398,7 @@ impl Assembler {
 		&self,
 		curr_gate: &str,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, String>,
+		assigned_gates: &HashMap<String, AssignedGate>,
 		added_gates: &mut HashSet<String>,
 		genetic_circuit: &mut GeneticCircuit,
 		id: &mut u8,
@@ -408,7 +409,7 @@ impl Assembler {
 
 		if added_gates.contains(curr_gate) {
 			let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-			let bio_gate = self.gates.get(assigned_gate).unwrap();
+			let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
 			return bio_gate.promoter.to_owned();
 		}
 
@@ -420,7 +421,7 @@ impl Assembler {
 		}
 		*id += 1;
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-		let bio_gate = self.gates.get(assigned_gate).unwrap();
+		let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
 
 		let color_hex = Hsl::from(
 			map(*id as f64, 0.0, assigned_gates.len() as f64, 0.0, 355.0) as f32,
@@ -433,7 +434,7 @@ impl Assembler {
 			inputs: inputs,
 			color: color_hex,
 			promoter: bio_gate.promoter.to_owned(),
-			name: assigned_gate.to_owned(),
+			name: assigned_gate.name.to_owned(),
 		});
 		added_gates.insert(curr_gate.to_owned());
 
@@ -443,7 +444,7 @@ impl Assembler {
 	pub fn assemble(
 		&self,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, String>,
+		assigned_gates: &HashMap<String, AssignedGate>,
 	) -> GeneticCircuit {
 		let mut genetic_circuit = GeneticCircuit {
 			output: OutputGene {
@@ -488,7 +489,10 @@ impl Assembler {
 		}
 	}
 
-	pub fn assign(&mut self, lc: &LogicCircuit) -> Result<(HashMap<String, String>, f64), Error> {
+	pub fn assign(
+		&mut self,
+		lc: &LogicCircuit,
+	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
 		if !self.outputs.contains_key(&lc.output.name) {
 			return Err(assign_err(
 				format!("Output '{}' not found.", lc.output.name),
@@ -514,15 +518,17 @@ impl Assembler {
 		&self,
 		lc: &LogicCircuit,
 		min: f64,
-	) -> Result<(HashMap<String, String>, f64), Error> {
+	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
 		let mut assigned_gates = HashMap::new();
 
 		let initial_bl: HashSet<String> = lc.inputs.iter().map(|x| x.name.to_owned()).collect();
+		let mut gate_bl = HashMap::new();
+		self.init_gate_bl(lc.output.name.to_owned(), lc, &mut gate_bl);
 		let ass_gate = self.walk_back(
 			lc.output.name.to_owned(),
 			&lc,
 			&initial_bl,
-			&mut HashMap::new(),
+			&mut gate_bl,
 			&mut assigned_gates,
 			min,
 		)?;
@@ -535,19 +541,33 @@ impl Assembler {
 		}
 	}
 
+	fn init_gate_bl(
+		&self,
+		curr_gate: String,
+		lc: &LogicCircuit,
+		gate_bl: &mut HashMap<String, HashSet<String>>,
+	) {
+		if self.inputs.contains_key(&curr_gate) {
+			return;
+		}
+
+		let gate = lc.gates.get(&curr_gate).unwrap();
+		for inp in &gate.inputs {
+			self.init_gate_bl(inp.to_owned(), lc, gate_bl);
+		}
+
+		gate_bl.insert(curr_gate, HashSet::new());
+	}
+
 	fn walk_back(
 		&self,
 		curr_gate: String,
 		lc: &LogicCircuit,
 		ext_bl: &HashSet<String>,
 		gate_bl: &mut HashMap<String, HashSet<String>>,
-		assigned_gates: &mut HashMap<String, String>,
+		assigned_gates: &mut HashMap<String, AssignedGate>,
 		min: f64,
 	) -> Result<AssignedGate, Error> {
-		if !gate_bl.contains_key(&curr_gate) {
-			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
-		}
-
 		if self.inputs.contains_key(&curr_gate) {
 			let in_rpus = self.inputs.get(&curr_gate).unwrap();
 			return Ok(AssignedGate {
@@ -556,7 +576,16 @@ impl Assembler {
 				min: in_rpus.rpu_on / in_rpus.rpu_off,
 				name: "0_0".to_string(),
 				bl: HashSet::new(),
+				clear: false,
 			});
+		}
+
+		if assigned_gates.contains_key(&curr_gate) {
+			let ass_gate = assigned_gates.get(&curr_gate).cloned().unwrap();
+			let gbl = gate_bl.get(&curr_gate).unwrap();
+			if !gbl.contains(&ass_gate.name) {
+				return Ok(ass_gate);
+			}
 		}
 
 		let gate = lc.gates.get(&curr_gate).unwrap();
@@ -565,6 +594,7 @@ impl Assembler {
 		let mut new_off = f64::MAX;
 		let mut new_min = f64::MAX;
 		let mut names: Vec<String> = Vec::new();
+		let mut clear = false;
 		for inp in &gate.inputs {
 			let ass_gate =
 				self.walk_back(inp.to_owned(), lc, &res_bl, gate_bl, assigned_gates, min)?;
@@ -573,6 +603,12 @@ impl Assembler {
 			new_on = ass_gate.on.max(new_on);
 			new_off = ass_gate.off.min(new_off);
 			new_min = ass_gate.min.min(new_min);
+			if ass_gate.clear {
+				clear = true;
+			}
+		}
+		if clear {
+			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
 		}
 
 		let mut gbl = gate_bl.get(&curr_gate).cloned().unwrap();
@@ -588,12 +624,34 @@ impl Assembler {
 					(0, 0),
 				));
 			}
+			if gate.inputs.len() > 1 && !self.inputs.contains_key(&gate.inputs[1]) {
+				let parentgbl = gate_bl.get_mut(&gate.inputs[1].to_owned()).unwrap();
+				parentgbl.insert(names[1].to_owned());
+				let res = self.walk_back(
+					curr_gate.to_owned(),
+					lc,
+					ext_bl,
+					gate_bl,
+					assigned_gates,
+					min,
+				);
+				if res.is_ok() {
+					let mut res = res.unwrap();
+					res.clear = true;
+					return Ok(res);
+				} else {
+					self.init_gate_bl(gate.inputs[1].to_owned(), lc, gate_bl);
+				}
+			}
 			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
 
 			let parentgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
 			parentgbl.insert(names[0].to_owned());
 
-			return self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min);
+			let mut ass_gate =
+				self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min)?;
+			ass_gate.clear = true;
+			return Ok(ass_gate);
 		}
 
 		res_bl.insert(get_group(&name));
@@ -603,8 +661,9 @@ impl Assembler {
 			off: max_off,
 			min: new_min.min(max_rpu),
 			bl: res_bl,
+			clear,
 		};
-		assigned_gates.insert(curr_gate, name);
+		assigned_gates.insert(curr_gate, ng.clone());
 
 		Ok(ng)
 	}
