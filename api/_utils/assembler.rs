@@ -6,7 +6,7 @@ use helpers::{
 	assign_err, damp, damp_params, get_group, lerp, make_plasmid_dna, make_plasmid_part,
 	make_plasmid_title, map, transfer, Error,
 };
-use kd_tree::{KdTree, LeafNode};
+use kd_tree::KdTree;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
@@ -84,8 +84,7 @@ pub struct AssignedGate {
 	off: f64,
 	min: f64,
 	name: String,
-	bl: HashSet<String>,
-	clear: bool,
+	rpu: f64,
 }
 
 #[derive(Deserialize)]
@@ -492,7 +491,7 @@ impl Assembler {
 	pub fn assign(
 		&mut self,
 		lc: &LogicCircuit,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
+	) -> Result<(HashMap<String, AssignedGate>, f64, f64), Error> {
 		if !self.outputs.contains_key(&lc.output.name) {
 			return Err(assign_err(
 				format!("Output '{}' not found.", lc.output.name),
@@ -509,188 +508,193 @@ impl Assembler {
 			}
 		}
 
-		let (assigned_gates, min) = self.try_walk(lc, 1.0)?;
+		let (assigned_gates, min_score, out_score) = self.try_walk(lc)?;
 
-		Ok((assigned_gates, min))
+		Ok((assigned_gates, min_score, out_score))
 	}
 
 	fn try_walk(
 		&self,
 		lc: &LogicCircuit,
-		min: f64,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
-		let mut assigned_gates = HashMap::new();
-
-		let initial_bl: HashSet<String> = lc.inputs.iter().map(|x| x.name.to_owned()).collect();
-		let mut gate_bl = HashMap::new();
-		self.init_gate_bl(lc.output.name.to_owned(), lc, &mut gate_bl);
-		let ass_gate = self.walk_back(
-			lc.output.name.to_owned(),
-			&lc,
-			&initial_bl,
-			&mut gate_bl,
-			&mut assigned_gates,
-			min,
-		)?;
-
-		let chres = self.try_walk(lc, ass_gate.min);
-		if chres.is_ok() {
-			Ok(chres.unwrap())
-		} else {
-			Ok((assigned_gates, ass_gate.min))
+	) -> Result<(HashMap<String, AssignedGate>, f64, f64), Error> {
+		let mut min_score = 1.0;
+		let mut out_score = 1.0;
+		let mut cached_ass_gates = None;
+		loop {
+			let mut assigned_gates = HashMap::new();
+			let mut initial_bl: HashSet<String> =
+				lc.inputs.iter().map(|x| x.name.to_owned()).collect();
+			let mut gate_bl = HashMap::new();
+			self.init_gate_bl(&lc.output.name, lc, &mut gate_bl, &assigned_gates);
+			let ass_gate = self.walk_back(
+				&lc.output.name,
+				&lc,
+				f64::MAX,
+				0.0,
+				&mut initial_bl,
+				&mut gate_bl,
+				&mut assigned_gates,
+				min_score,
+				false,
+			);
+			if ass_gate.is_err() {
+				if cached_ass_gates.is_none() {
+					return Err(ass_gate.err().unwrap());
+				}
+				break;
+			}
+			let ass_gate = ass_gate.unwrap();
+			min_score = ass_gate.min;
+			println!("{}", ass_gate.rpu);
+			out_score = ass_gate.rpu;
+			cached_ass_gates = Some(assigned_gates);
 		}
+
+		Ok((cached_ass_gates.unwrap(), min_score, out_score))
 	}
 
 	fn init_gate_bl(
 		&self,
-		curr_gate: String,
+		curr_gate: &str,
 		lc: &LogicCircuit,
 		gate_bl: &mut HashMap<String, HashSet<String>>,
+		assigned_gates: &HashMap<String, AssignedGate>,
 	) {
-		if self.inputs.contains_key(&curr_gate) {
+		if self.inputs.contains_key(curr_gate) {
 			return;
 		}
 
-		let gate = lc.gates.get(&curr_gate).unwrap();
-		for inp in &gate.inputs {
-			self.init_gate_bl(inp.to_owned(), lc, gate_bl);
+		if assigned_gates.contains_key(curr_gate) {
+			return;
 		}
 
-		gate_bl.insert(curr_gate, HashSet::new());
+		let gate = lc.gates.get(curr_gate).unwrap();
+		for inp in &gate.inputs {
+			self.init_gate_bl(inp, lc, gate_bl, assigned_gates);
+		}
+
+		gate_bl.insert(curr_gate.to_owned(), HashSet::new());
 	}
 
 	fn walk_back(
 		&self,
-		curr_gate: String,
+		curr_gate: &str,
 		lc: &LogicCircuit,
-		ext_bl: &HashSet<String>,
+		on: f64,
+		off: f64,
+		ext_bl: &mut HashSet<String>,
 		gate_bl: &mut HashMap<String, HashSet<String>>,
 		assigned_gates: &mut HashMap<String, AssignedGate>,
 		min: f64,
+		roadblock: bool,
 	) -> Result<AssignedGate, Error> {
-		if self.inputs.contains_key(&curr_gate) {
-			let in_rpus = self.inputs.get(&curr_gate).unwrap();
+		if self.inputs.contains_key(curr_gate) {
+			let input = self.inputs.get(curr_gate).unwrap();
+			let rpu = input.rpu_on / input.rpu_off;
 			return Ok(AssignedGate {
-				on: in_rpus.rpu_off,
-				off: in_rpus.rpu_on,
-				min: in_rpus.rpu_on / in_rpus.rpu_off,
-				name: "0_0".to_string(),
-				bl: HashSet::new(),
-				clear: false,
+				name: input.name.to_owned(),
+				on: input.rpu_off,
+				off: input.rpu_on,
+				min: rpu,
+				rpu,
 			});
 		}
+		if assigned_gates.contains_key(curr_gate) {
+			let cass = assigned_gates.get(curr_gate).cloned().unwrap();
+			return Ok(cass);
+		}
+		let cached_bl = ext_bl.clone();
+		let cached_ass = assigned_gates.clone();
 
-		if assigned_gates.contains_key(&curr_gate) {
-			let ass_gate = assigned_gates.get(&curr_gate).cloned().unwrap();
-			let gbl = gate_bl.get(&curr_gate).unwrap();
-			if !gbl.contains(&ass_gate.name) {
-				return Ok(ass_gate);
-			}
+		let mut search_bl = ext_bl.clone();
+		let gbl = gate_bl.get(curr_gate).cloned().unwrap();
+		search_bl.extend(gbl);
+		if roadblock {
+			search_bl.extend(self.roadblock.clone());
 		}
 
-		let gate = lc.gates.get(&curr_gate).unwrap();
-		let mut res_bl = ext_bl.clone();
-		let mut new_on = 0.0;
+		let node = self.kd.search(vec![on, off, 1000.0], &search_bl);
+		if node.is_none() {
+			return Err(assign_err(
+				"Failed to find optimal genetic circuit!".to_owned(),
+				(0, 0),
+			));
+		}
+		let node = node.unwrap();
+		ext_bl.insert(get_group(&node.name));
+
+		let gate = lc.gates.get(curr_gate).unwrap();
+		let mut new_on = 0.0f64;
 		let mut new_off = f64::MAX;
 		let mut new_min = f64::MAX;
-		let mut names: Vec<String> = Vec::new();
-		let mut clear = false;
+		let mut rb = false;
+		let mut err = false;
 		for inp in &gate.inputs {
-			let ass_gate =
-				self.walk_back(inp.to_owned(), lc, &res_bl, gate_bl, assigned_gates, min)?;
-			res_bl.extend(ass_gate.bl);
-			names.push(ass_gate.name);
-			new_on = ass_gate.on.max(new_on);
-			new_off = ass_gate.off.min(new_off);
-			new_min = ass_gate.min.min(new_min);
-			if ass_gate.clear {
-				clear = true;
+			let ass_gate = self.walk_back(
+				inp,
+				lc,
+				node.point[0],
+				node.point[1],
+				ext_bl,
+				gate_bl,
+				assigned_gates,
+				min,
+				rb,
+			);
+			if ass_gate.is_err() {
+				err = true;
+				break;
+			}
+			let ass_gate = ass_gate.unwrap();
+
+			new_on = new_on.max(ass_gate.on);
+			new_off = new_off.min(ass_gate.off);
+			new_min = new_min.min(ass_gate.min);
+			if self.roadblock.contains(&get_group(&ass_gate.name)) {
+				rb = true;
 			}
 		}
-		if clear {
-			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
+
+		let (max_on, max_off, max_rpu) = self.get_on_off(new_on, new_off, &node.name);
+		if max_rpu <= min || err {
+			*ext_bl = cached_bl;
+			*assigned_gates = cached_ass;
+			let gbl = gate_bl.get_mut(curr_gate).unwrap();
+			gbl.insert(node.name.to_owned());
+			for inp in &gate.inputs {
+				self.init_gate_bl(inp, lc, gate_bl, assigned_gates);
+			}
+			return self.walk_back(
+				curr_gate,
+				lc,
+				on,
+				off,
+				ext_bl,
+				gate_bl,
+				assigned_gates,
+				min,
+				roadblock,
+			);
 		}
 
-		let mut gbl = gate_bl.get(&curr_gate).cloned().unwrap();
-		gbl.extend(res_bl.clone());
-		let node = self.kd.search(vec![new_on, new_off, 1000.0], &gbl);
-
-		let (name, max_on, max_off, max_rpu) = self.get_on_off(new_on, new_off, node);
-		let num_r = self.get_num_roadblocks(&names);
-		if max_rpu <= min || num_r > 1 {
-			if self.inputs.contains_key(&gate.inputs[0]) {
-				return Err(assign_err(
-					"Failed to find optimal genetic circuit!".to_owned(),
-					(0, 0),
-				));
-			}
-			if gate.inputs.len() > 1 && !self.inputs.contains_key(&gate.inputs[1]) {
-				let parentgbl = gate_bl.get_mut(&gate.inputs[1].to_owned()).unwrap();
-				parentgbl.insert(names[1].to_owned());
-				let res = self.walk_back(
-					curr_gate.to_owned(),
-					lc,
-					ext_bl,
-					gate_bl,
-					assigned_gates,
-					min,
-				);
-				if res.is_ok() {
-					let mut res = res.unwrap();
-					res.clear = true;
-					return Ok(res);
-				} else {
-					self.init_gate_bl(gate.inputs[1].to_owned(), lc, gate_bl);
-				}
-			}
-			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
-
-			let parentgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
-			parentgbl.insert(names[0].to_owned());
-
-			let mut ass_gate =
-				self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min)?;
-			ass_gate.clear = true;
-			return Ok(ass_gate);
-		}
-
-		res_bl.insert(get_group(&name));
 		let ng = AssignedGate {
-			name: name.to_owned(),
+			name: node.name,
 			on: max_on,
 			off: max_off,
-			min: new_min.min(max_rpu),
-			bl: res_bl,
-			clear,
+			min: max_rpu.min(new_min),
+			rpu: max_rpu,
 		};
-		assigned_gates.insert(curr_gate, ng.clone());
+
+		assigned_gates.insert(curr_gate.to_owned(), ng.clone());
 
 		Ok(ng)
 	}
 
-	fn get_on_off(&self, on: f64, off: f64, node: Option<LeafNode>) -> (String, f64, f64, f64) {
-		if node.is_none() {
-			return ("0_0".to_string(), 0.0, 0.0, 0.0);
-		}
-		let node = node.unwrap();
-		let gate = self.gates.get(&node.name).unwrap();
+	fn get_on_off(&self, on: f64, off: f64, node: &str) -> (f64, f64, f64) {
+		let gate = self.gates.get(node).unwrap();
 		let new_off = transfer(on, &gate.params);
 		let new_on = transfer(off, &gate.params);
 
-		(node.name, new_on, new_off, new_off / new_on)
-	}
-
-	fn get_num_roadblocks(&self, names: &Vec<String>) -> u8 {
-		let mut num = 0;
-		for name in names {
-			if name == "0_0" {
-				continue;
-			}
-			let gate = self.gates.get(name).unwrap();
-			if self.roadblock.contains(&gate.promoter) {
-				num += 1;
-			}
-		}
-		num
+		(new_on, new_off, new_off / new_on)
 	}
 }

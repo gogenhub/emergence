@@ -6,7 +6,7 @@ use std::str::Chars;
 pub enum TokenKind {
 	Sign,
 	Operation,
-	Symbol,
+	Name,
 	Keyword,
 	Number,
 	Bool,
@@ -72,7 +72,7 @@ impl<'a> Iterator for LexerIter<'a> {
 				}
 				"true" | "false" => Some((TokenKind::Bool, group.to_owned(), pos)),
 				c if chars.is_match(&c.to_string()) => {
-					Some((TokenKind::Symbol, group.to_owned(), pos))
+					Some((TokenKind::Name, group.to_owned(), pos))
 				}
 				c if numbers.is_match(&c.to_string()) => {
 					Some((TokenKind::Number, group.to_owned(), pos))

@@ -167,6 +167,9 @@ pub fn damp_params(angular_freq: f64, delta_time: f64) -> MotionParams {
 
 pub fn get_group(curr: &str) -> String {
 	let group: Vec<&str> = curr.split("_").collect();
+	if group.len() < 2 {
+		return "none".to_owned();
+	}
 	group[1].to_owned()
 }
 
