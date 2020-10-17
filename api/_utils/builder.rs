@@ -4,7 +4,7 @@ use helpers::{
 	ret_from_to, Error,
 };
 use parser::{
-	Arg, BreakpointKind, Def, ExpressionKind, Function, Operation, OperationKind, ParserIter, Test,
+	Arg, BreakpointKind, Def, Expression, Function, Operation, OperationKind, ParserIter, Test,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -22,7 +22,7 @@ pub struct Gate {
 	pub kind: GateKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LogicCircuit {
 	pub inputs: Vec<Arg>,
 	pub output: Arg,
@@ -53,8 +53,8 @@ impl<'a> LogicCircuitBuilder<'a> {
 		op: &Operation,
 		fn_map: &mut HashMap<String, (usize, usize, bool)>,
 		param_map: &mut HashMap<&String, (usize, bool)>,
-		retr_map: &mut HashMap<&String, (usize, bool)>,
 		local_vars_map: &mut HashMap<&String, (usize, bool)>,
+		retr_map: &mut HashMap<&String, (usize, bool)>,
 	) -> Result<(), Error> {
 		if op.kind == OperationKind::Call && !fn_map.contains_key(&op.name) {
 			return Err(compile_err(
@@ -79,7 +79,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 			func.2 = true;
 		}
 
-		if op.kind == OperationKind::Operation {
+		if op.kind == OperationKind::Inline {
 			let kind = get_gate_kind(&op.name);
 			if kind == GateKind::Unknown {
 				return Err(compile_err(
@@ -90,19 +90,16 @@ impl<'a> LogicCircuitBuilder<'a> {
 		}
 
 		for arg in &op.args {
-			if retr_map.contains_key(&arg.name) {
+			if !param_map.contains_key(&arg.name) && !local_vars_map.contains_key(&arg.name) {
 				return Err(compile_err(
-					format!(
-						"Return variable '{}' can't be passed to a operation.",
-						arg.name
-					),
+					format!("Argument '{}' not found.", arg.name),
 					(arg.pos, arg.name.len()),
 				));
 			}
 
-			if !param_map.contains_key(&arg.name) && !local_vars_map.contains_key(&arg.name) {
+			if retr_map.contains_key(&arg.name) {
 				return Err(compile_err(
-					format!("Argument '{}' not found.", arg.name),
+					format!("Can't pass return variable '{}'.", arg.name),
 					(arg.pos, arg.name.len()),
 				));
 			}
@@ -141,47 +138,66 @@ impl<'a> LogicCircuitBuilder<'a> {
 				(func.ret.pos, func.ret.name.len()),
 			));
 		}
-		let mut retr_map = HashMap::new();
-		retr_map.insert(&func.ret.name, (func.ret.pos, false));
 
 		let mut local_vars_map = HashMap::new();
+		let mut ret_map = HashMap::new();
+		ret_map.insert(&func.ret.name, (func.ret.pos, false));
 		for exp in &func.body {
-			if local_vars_map.contains_key(&exp.var.name) || params_map.contains_key(&exp.var.name)
-			{
-				return Err(compile_err(
-					format!("Variable '{}' already exists.", exp.var.name),
-					(exp.var.pos, exp.var.name.len()),
-				));
-			}
+			match exp {
+				Expression::Declare(declare) => {
+					for var in &declare.vars {
+						if local_vars_map.contains_key(&var.name) {
+							return Err(compile_err(
+								format!("Variable '{}' already exists.", var.name),
+								(var.pos, var.name.len()),
+							));
+						}
 
-			if exp.kind == ExpressionKind::Assign && retr_map.contains_key(&exp.var.name) {
-				return Err(compile_err(
-					"Variable can't have the same name as the return value.".to_owned(),
-					(exp.var.pos, exp.var.name.len()),
-				));
-			}
+						if params_map.contains_key(&var.name) {
+							return Err(compile_err(
+								format!(
+									"Variable can't have the same name as parameter: '{}'.",
+									var.name
+								),
+								(var.pos, var.name.len()),
+							));
+						}
 
-			if exp.kind == ExpressionKind::Return && !retr_map.contains_key(&exp.var.name) {
-				return Err(compile_err(
-					format!("Return variable '{}' not found.", exp.var.name),
-					(exp.var.pos, exp.var.name.len()),
-				));
-			}
+						if ret_map.contains_key(&var.name) {
+							return Err(compile_err(
+								format!(
+									"Variable can't have the same name as return variable: '{}'.",
+									var.name
+								),
+								(var.pos, var.name.len()),
+							));
+						}
 
-			if exp.kind == ExpressionKind::Return {
-				(retr_map.get_mut(&exp.var.name).unwrap()).1 = true;
-			}
-
-			self.check_op_errors(
-				&exp.op,
-				fn_map,
-				&mut params_map,
-				&mut retr_map,
-				&mut local_vars_map,
-			)?;
-
-			if exp.kind == ExpressionKind::Assign {
-				local_vars_map.insert(&exp.var.name, (exp.var.pos, false));
+						local_vars_map.insert(&var.name, (var.pos, false));
+					}
+				}
+				Expression::Assign(assign) => {
+					if !local_vars_map.contains_key(&assign.var.name)
+						&& !ret_map.contains_key(&assign.var.name)
+					{
+						return Err(compile_err(
+							format!("Variable '{}' not found.", assign.var.name),
+							(assign.var.pos, assign.var.name.len()),
+						));
+					}
+					(local_vars_map
+						.get_mut(&assign.var.name)
+						.or(ret_map.get_mut(&assign.var.name))
+						.unwrap())
+					.1 = true;
+					self.check_op_errors(
+						&assign.op,
+						fn_map,
+						&mut params_map,
+						&mut local_vars_map,
+						&mut ret_map,
+					)?;
+				}
 			}
 		}
 
@@ -194,19 +210,19 @@ impl<'a> LogicCircuitBuilder<'a> {
 			}
 		}
 
-		for (key, (pos, used)) in retr_map {
+		for (key, (pos, used)) in local_vars_map {
 			if !used {
 				return Err(compile_err(
-					format!("Return variable '{}' never assigned.", key),
+					format!("Variable '{}' never used.", key),
 					(pos, key.len()),
 				));
 			}
 		}
 
-		for (key, (pos, used)) in local_vars_map {
+		for (key, (pos, used)) in ret_map {
 			if !used {
 				return Err(compile_err(
-					format!("Variable '{}' never used.", key),
+					format!("Return variable '{}' never used.", key),
 					(pos, key.len()),
 				));
 			}
@@ -357,13 +373,17 @@ impl<'a> LogicCircuitBuilder<'a> {
 		gates: &mut HashMap<String, Gate>,
 	) {
 		for (i, exp) in func.body.iter().enumerate() {
-			let op = &exp.op;
+			if exp.is_declare() {
+				continue;
+			}
+			let assign = exp.assign();
+			let op = &assign.op;
 			match op.kind {
 				// normal operation
-				OperationKind::Operation => {
-					let kind = get_gate_kind(&exp.op.name);
+				OperationKind::Inline => {
+					let kind = get_gate_kind(&op.name);
 					let ins = format_args_for_gate(&op.args, &args_map, id);
-					let out = format_ret_for_gate(&exp.var, &rets_map, id);
+					let out = format_ret_for_gate(&assign.var, &rets_map, id);
 					gates.insert(
 						out.to_owned(),
 						Gate {
@@ -379,7 +399,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 					let new_id = format!("{}{}{}", id, op.name, i);
 
 					let arg_map_to_current = args_from_to(&call_func.params, &op.args);
-					let ret_map_to_current = ret_from_to(&call_func.ret, &exp.var);
+					let ret_map_to_current = ret_from_to(&call_func.ret, &assign.var);
 
 					let arg_map_new = map_hms(&arg_map_to_current, args_map, &id);
 					let ret_map_new = map_hms(&ret_map_to_current, rets_map, &id);

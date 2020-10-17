@@ -1,7 +1,6 @@
 extern crate base64;
 extern crate chrono;
 extern crate fs_extra;
-extern crate meval;
 extern crate regex;
 extern crate serde;
 extern crate serde_json;

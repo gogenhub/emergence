@@ -1,9 +1,10 @@
 use crate::_utils::{helpers, lexer};
 use helpers::{eof, get_breakpoint_kind, syntax_err, Error};
 use lexer::{LexerIter, TokenKind};
+use serde::Serialize;
 use std::iter::Peekable;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Arg {
 	pub name: String,
 	pub pos: usize,
@@ -12,7 +13,7 @@ pub struct Arg {
 #[derive(Debug, PartialEq)]
 pub enum OperationKind {
 	Call,
-	Operation,
+	Inline,
 }
 
 #[derive(Debug)]
@@ -23,17 +24,37 @@ pub struct Operation {
 	pub args: Vec<Arg>,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum ExpressionKind {
-	Assign,
-	Return,
+#[derive(Debug)]
+pub struct Declare {
+	pub vars: Vec<Arg>,
 }
 
 #[derive(Debug)]
-pub struct Expression {
-	pub kind: ExpressionKind,
+pub struct Assign {
 	pub var: Arg,
 	pub op: Operation,
+}
+
+#[derive(Debug)]
+pub enum Expression {
+	Assign(Assign),
+	Declare(Declare),
+}
+
+impl Expression {
+	pub fn is_declare(&self) -> bool {
+		match self {
+			Expression::Declare(_) => true,
+			_ => false,
+		}
+	}
+
+	pub fn assign(&self) -> &Assign {
+		match self {
+			Expression::Assign(a) => a,
+			_ => panic!("wtf!"),
+		}
+	}
 }
 
 #[derive(Debug)]
@@ -52,7 +73,7 @@ pub enum Def {
 }
 
 #[derive(Debug)]
-pub struct Assignment {
+pub struct TestbenchAssignment {
 	pub name: String,
 	pub pos: usize,
 	pub value: bool,
@@ -70,7 +91,7 @@ pub struct Breakpoint {
 	pub pos: usize,
 	pub kind: BreakpointKind,
 	pub time: u32,
-	pub assignments: Vec<Assignment>,
+	pub assignments: Vec<TestbenchAssignment>,
 }
 
 #[derive(Debug)]
@@ -98,9 +119,9 @@ impl<'a> ParserIter<'a> {
 		while let Some(token) = self.tokens.next() {
 			let (name_type, name, name_pos) = token;
 			let name_len = name.len();
-			if name_type != TokenKind::Symbol {
+			if name_type != TokenKind::Name {
 				return Err(syntax_err(
-					format!("Expected symbol, got: '{}'.", name),
+					format!("Expected name, got: '{}'.", name),
 					name_pos,
 					name_len,
 				));
@@ -127,38 +148,38 @@ impl<'a> ParserIter<'a> {
 
 	fn parse_operation(&mut self) -> Result<Operation, Error> {
 		let (first_token_type, first_token, first_token_pos) = self.tokens.next().ok_or(eof())?;
-		if (first_token_type != TokenKind::Symbol) && (first_token_type != TokenKind::Operation) {
+		if (first_token_type != TokenKind::Name) && (first_token_type != TokenKind::Operation) {
 			return Err(syntax_err(
-				format!("Expected symbol or operation, got: '{}'.", first_token),
+				format!("Expected name or operation, got: '{}'.", first_token),
 				first_token_pos,
 				first_token.len(),
 			));
 		}
 		let (second_token_type, second_token, second_token_pos) = self.tokens.next().ok_or(eof())?;
-		if first_token_type == TokenKind::Operation && second_token_type != TokenKind::Symbol {
+		if first_token_type == TokenKind::Operation && second_token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol, got: '{}'.", second_token),
+				format!("Expected name, got: '{}'.", second_token),
 				second_token_pos,
 				second_token.len(),
 			));
 		}
 
 		let res = match (first_token_type, second_token_type) {
-			(TokenKind::Operation, TokenKind::Symbol) => Ok(Operation {
+			(TokenKind::Operation, TokenKind::Name) => Ok(Operation {
 				pos: first_token_pos,
-				kind: OperationKind::Operation,
+				kind: OperationKind::Inline,
 				name: first_token,
 				args: vec![Arg {
 					name: second_token.clone(),
 					pos: second_token_pos,
 				}],
 			}),
-			(TokenKind::Symbol, TokenKind::Operation) => {
+			(TokenKind::Name, TokenKind::Operation) => {
 				let (third_token_type, third_token, third_token_pos) =
 					self.tokens.next().ok_or(eof())?;
-				if third_token_type != TokenKind::Symbol {
+				if third_token_type != TokenKind::Name {
 					return Err(syntax_err(
-						format!("Expected symbol, got: '{}'.", third_token),
+						format!("Expected name, got: '{}'.", third_token),
 						third_token_pos,
 						third_token.len(),
 					));
@@ -176,12 +197,12 @@ impl<'a> ParserIter<'a> {
 				];
 				Ok(Operation {
 					pos: second_token_pos,
-					kind: OperationKind::Operation,
+					kind: OperationKind::Inline,
 					name: second_token.clone(),
 					args: args,
 				})
 			}
-			(TokenKind::Symbol, TokenKind::Sign) => {
+			(TokenKind::Name, TokenKind::Sign) => {
 				if second_token != "(" {
 					return Err(syntax_err(
 						format!("Expected sign '(', got: '{}'.", second_token),
@@ -200,20 +221,12 @@ impl<'a> ParserIter<'a> {
 			}
 			_ => {
 				return Err(syntax_err(
-					format!("Expected symbol or operation, got: '{}'.", second_token),
+					format!("Expected name or operation, got: '{}'.", second_token),
 					second_token_pos,
 					second_token.len(),
 				))
 			}
 		};
-		let (eol_token_type, eol_token, eol_pos) = self.tokens.next().ok_or(eof())?;
-		if eol_token_type != TokenKind::Sign || eol_token != ";" {
-			return Err(syntax_err(
-				format!("Expected sign ';', got: '{}'.", eol_token),
-				eol_pos,
-				eol_token.len(),
-			));
-		}
 		res
 	}
 
@@ -222,33 +235,33 @@ impl<'a> ParserIter<'a> {
 		let token_len = token.len();
 		match (token_type, token) {
 			(TokenKind::Keyword, c) if c == "let" => {
-				let (name_token_type, name, name_pos) = self.tokens.next().ok_or(eof())?;
-				if name_token_type != TokenKind::Symbol {
+				let (var_token_type, var, var_pos) = self.tokens.next().ok_or(eof())?;
+				let args;
+				if var_token_type == TokenKind::Sign && var == "(" {
+					args = self.parse_args()?;
+				} else if var_token_type == TokenKind::Name {
+					args = vec![Arg {
+						name: var,
+						pos: var_pos,
+					}]
+				} else {
 					return Err(syntax_err(
-						format!("Expected symbol, got: '{}'.", name),
-						name_pos,
-						name.len(),
+						format!("Expected name or a sign '(', got: '{}'.", var),
+						var_pos,
+						var.len(),
 					));
 				}
-				let (equal_token_type, equal, equal_pos) = self.tokens.next().ok_or(eof())?;
-				if equal_token_type != TokenKind::Sign || equal != "=" {
+				let (eol_token_type, eol_token, eol_pos) = self.tokens.next().ok_or(eof())?;
+				if eol_token_type != TokenKind::Sign || eol_token != ";" {
 					return Err(syntax_err(
-						format!("Expected sign '=' got: '{}'.", equal),
-						equal_pos,
-						equal.len(),
+						format!("Expected sign ';', got: '{}'.", eol_token),
+						eol_pos,
+						eol_token.len(),
 					));
 				}
-				let op = self.parse_operation()?;
-				Ok(Expression {
-					kind: ExpressionKind::Assign,
-					var: Arg {
-						name: name,
-						pos: name_pos,
-					},
-					op: op,
-				})
+				Ok(Expression::Declare(Declare { vars: args }))
 			}
-			(TokenKind::Symbol, name) => {
+			(TokenKind::Name, name) => {
 				let (equal_token_type, equal, equal_pos) = self.tokens.next().ok_or(eof())?;
 				if equal_token_type != TokenKind::Sign || equal != "=" {
 					return Err(syntax_err(
@@ -258,18 +271,25 @@ impl<'a> ParserIter<'a> {
 					));
 				}
 				let op = self.parse_operation()?;
-				Ok(Expression {
-					kind: ExpressionKind::Return,
+				let (eol_token_type, eol_token, eol_pos) = self.tokens.next().ok_or(eof())?;
+				if eol_token_type != TokenKind::Sign || eol_token != ";" {
+					return Err(syntax_err(
+						format!("Expected sign ';', got: '{}'.", eol_token),
+						eol_pos,
+						eol_token.len(),
+					));
+				}
+				Ok(Expression::Assign(Assign {
 					var: Arg {
 						name: name,
 						pos: token_pos,
 					},
-					op: op,
-				})
+					op,
+				}))
 			}
 			(_, c) => {
 				return Err(syntax_err(
-					format!("Expected symbol or keyword 'let', got: '{}'.", c),
+					format!("Expected name or keyword 'let', got: '{}'.", c),
 					token_pos,
 					token_len,
 				));
@@ -301,9 +321,9 @@ impl<'a> ParserIter<'a> {
 
 	fn parse_func(&mut self) -> Result<Def, Error> {
 		let (name_token_type, name, name_pos) = self.tokens.next().ok_or(eof())?;
-		if name_token_type != TokenKind::Symbol {
+		if name_token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol, got: '{}'.", name),
+				format!("Expected name, got: '{}'.", name),
 				name_pos,
 				name.len(),
 			));
@@ -313,14 +333,14 @@ impl<'a> ParserIter<'a> {
 		let mut args = Vec::new();
 		if arg_token_type == TokenKind::Sign && arg_token == "(" {
 			args = self.parse_args()?;
-		} else if arg_token_type == TokenKind::Symbol {
+		} else if arg_token_type == TokenKind::Name {
 			args.push(Arg {
 				name: arg_token.clone(),
 				pos: arg_token_pos,
 			});
 		} else {
 			return Err(syntax_err(
-				format!("Expected symbol or list of symbols, got: '{}'.", arg_token),
+				format!("Expected name or a sign '(', got: '{}'.", arg_token),
 				arg_token_pos,
 				arg_token.len(),
 			));
@@ -337,9 +357,9 @@ impl<'a> ParserIter<'a> {
 
 		let (retr_token_type, retr_token, retr_token_pos) = self.tokens.next().ok_or(eof())?;
 		let retr_token_len = retr_token.len();
-		if retr_token_type != TokenKind::Symbol {
+		if retr_token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol, got: '{}'.", retr_token),
+				format!("Expected name, got: '{}'.", retr_token),
 				retr_token_pos,
 				retr_token_len,
 			));
@@ -370,11 +390,11 @@ impl<'a> ParserIter<'a> {
 		}))
 	}
 
-	fn parse_assignment(&mut self) -> Result<Assignment, Error> {
+	fn parse_assignment(&mut self) -> Result<TestbenchAssignment, Error> {
 		let (token_type, token, token_pos) = self.tokens.next().ok_or(eof())?;
-		if token_type != TokenKind::Symbol {
+		if token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol , got: '{}'.", token),
+				format!("Expected name , got: '{}'.", token),
 				token_pos,
 				token.len(),
 			));
@@ -406,7 +426,7 @@ impl<'a> ParserIter<'a> {
 			));
 		}
 
-		Ok(Assignment {
+		Ok(TestbenchAssignment {
 			name: token,
 			pos: token_pos,
 			value: bool_token.parse().unwrap(),
@@ -434,7 +454,7 @@ impl<'a> ParserIter<'a> {
 
 		let mut assignments = Vec::new();
 		while let Some((kind, _, _)) = self.tokens.peek() {
-			if *kind != TokenKind::Symbol {
+			if *kind != TokenKind::Name {
 				break;
 			}
 
@@ -478,9 +498,9 @@ impl<'a> ParserIter<'a> {
 
 	fn parse_test(&mut self) -> Result<Def, Error> {
 		let (name_token_type, name, name_pos) = self.tokens.next().ok_or(eof())?;
-		if name_token_type != TokenKind::Symbol {
+		if name_token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol, got: '{}'.", name),
+				format!("Expected name, got: '{}'.", name),
 				name_pos,
 				name.len(),
 			));
@@ -490,14 +510,14 @@ impl<'a> ParserIter<'a> {
 		let mut args = Vec::new();
 		if arg_token_type == TokenKind::Sign && arg_token == "(" {
 			args = self.parse_args()?;
-		} else if arg_token_type == TokenKind::Symbol {
+		} else if arg_token_type == TokenKind::Name {
 			args.push(Arg {
 				name: arg_token.clone(),
 				pos: arg_token_pos,
 			});
 		} else {
 			return Err(syntax_err(
-				format!("Expected symbol or list of symbols, got: '{}'.", arg_token),
+				format!("Expected name or a sign '(', got: '{}'.", arg_token),
 				arg_token_pos,
 				arg_token.len(),
 			));
@@ -514,9 +534,9 @@ impl<'a> ParserIter<'a> {
 
 		let (retr_token_type, retr_token, retr_token_pos) = self.tokens.next().ok_or(eof())?;
 		let retr_token_len = retr_token.len();
-		if retr_token_type != TokenKind::Symbol {
+		if retr_token_type != TokenKind::Name {
 			return Err(syntax_err(
-				format!("Expected symbol, got: '{}'.", retr_token),
+				format!("Expected name, got: '{}'.", retr_token),
 				retr_token_pos,
 				retr_token_len,
 			));

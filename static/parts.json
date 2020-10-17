@@ -1,9 +1,4 @@
 {
-	"pTac": {
-		"name": "pTac",
-		"kind": "Promoter",
-		"seq": "AACGATCGTTGGCTGTGTTGACAATTAATCATCGGCTCGTATAATGTGTGGAATTGTGAGCGCTCACAATT"
-	},
 	"pBAD": {
 		"name": "pBAD",
 		"kind": "Promoter",

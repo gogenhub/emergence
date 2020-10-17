@@ -1,12 +1,13 @@
-use crate::_utils::{builder, helpers, kd_tree};
-use builder::{LogicCircuit, Testbench};
+use crate::_utils::{builder, helpers};
+use builder::{Gate, LogicCircuit, Testbench};
 use colors_transform::{Color, Hsl};
 use fs_extra::file::read_to_string;
 use helpers::{
-	assign_err, damp, damp_params, get_group, lerp, make_plasmid_dna, make_plasmid_part,
-	make_plasmid_title, map, transfer, Error,
+	assign_err, damp, damp_params, gen_matrix, get_group, lerp, lrate, make_plasmid_dna,
+	make_plasmid_part, make_plasmid_title, map, out_error, transfer, Error,
 };
-use kd_tree::{KdTree, LeafNode};
+use rand::distributions::{Distribution, Uniform};
+use rand::prelude::ThreadRng;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
@@ -84,8 +85,7 @@ pub struct AssignedGate {
 	off: f64,
 	min: f64,
 	name: String,
-	bl: HashSet<String>,
-	clear: bool,
+	rpu: f64,
 }
 
 #[derive(Deserialize)]
@@ -95,8 +95,8 @@ struct Rules {
 }
 
 pub struct Assembler {
-	kd: KdTree,
 	gates: HashMap<String, BioGate>,
+	gates_vec: Vec<BioGate>,
 	parts: HashMap<String, Part>,
 	inputs: HashMap<String, Input>,
 	outputs: HashMap<String, String>,
@@ -108,8 +108,8 @@ pub struct Assembler {
 impl Assembler {
 	pub fn new() -> Self {
 		Self {
-			kd: KdTree::new(3),
 			gates: HashMap::new(),
+			gates_vec: Vec::new(),
 			parts: HashMap::new(),
 			inputs: HashMap::new(),
 			outputs: HashMap::new(),
@@ -124,7 +124,6 @@ impl Assembler {
 
 	pub fn load(&mut self) {
 		let dir = env::current_dir().unwrap();
-		let tree_path = format!("{}/static/tree.json", dir.display());
 		let gates_path = format!("{}/static/gates.json", dir.display());
 		let parts_path = format!("{}/static/parts.json", dir.display());
 		let inputs_path = format!("{}/static/inputs.json", dir.display());
@@ -132,7 +131,6 @@ impl Assembler {
 		let rules_path = format!("{}/static/rules.json", dir.display());
 		let roadblock_path = format!("{}/static/roadblock.json", dir.display());
 
-		let trees_f = read_to_string(tree_path).unwrap();
 		let gates_f = read_to_string(gates_path).unwrap();
 		let parts_f = read_to_string(parts_path).unwrap();
 		let inputs_f = read_to_string(inputs_path).unwrap();
@@ -140,7 +138,6 @@ impl Assembler {
 		let rules_f = read_to_string(rules_path).unwrap();
 		let roadblock_f = read_to_string(roadblock_path).unwrap();
 
-		let tree: KdTree = from_str(&trees_f).unwrap();
 		let gates: HashMap<String, BioGate> = from_str(&gates_f).unwrap();
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
@@ -163,8 +160,8 @@ impl Assembler {
 				.collect(),
 		};
 
-		self.kd = tree;
-		self.gates = gates;
+		self.gates = gates.clone();
+		self.gates_vec = gates.values().cloned().collect();
 		self.parts = parts;
 		self.inputs = inputs;
 		self.rules = new_rules;
@@ -321,7 +318,7 @@ impl Assembler {
 		for gene in &gc.genes {
 			let mut max = 0.0f64;
 			for inp in &gene.inputs {
-				let inp_state = input_targets.get(inp).unwrap();
+				let inp_state = input_targets.get(inp).unwrap_or(&0.0);
 				max = max.max(*inp_state);
 			}
 			let gate = self.gates.get(&gene.name).unwrap();
@@ -398,7 +395,7 @@ impl Assembler {
 		&self,
 		curr_gate: &str,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
+		assigned_gates: &HashMap<String, usize>,
 		added_gates: &mut HashSet<String>,
 		genetic_circuit: &mut GeneticCircuit,
 		id: &mut u8,
@@ -409,19 +406,20 @@ impl Assembler {
 
 		if added_gates.contains(curr_gate) {
 			let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-			let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
+			let bio_gate = self.gates_vec.get(*assigned_gate).unwrap();
 			return bio_gate.promoter.to_owned();
 		}
 
+		added_gates.insert(curr_gate.to_owned());
 		let gate = lc.gates.get(curr_gate).unwrap();
 		let mut inputs = Vec::new();
 		for inp in &gate.inputs {
 			let pro = self.walk_assemble(inp, lc, assigned_gates, added_gates, genetic_circuit, id);
 			inputs.push(pro);
 		}
-		*id += 1;
 		let assigned_gate = assigned_gates.get(curr_gate).unwrap();
-		let bio_gate = self.gates.get(&assigned_gate.name).unwrap();
+		let bio_gate = self.gates_vec.get(*assigned_gate).unwrap();
+		*id += 1;
 
 		let color_hex = Hsl::from(
 			map(*id as f64, 0.0, assigned_gates.len() as f64, 0.0, 355.0) as f32,
@@ -434,9 +432,8 @@ impl Assembler {
 			inputs: inputs,
 			color: color_hex,
 			promoter: bio_gate.promoter.to_owned(),
-			name: assigned_gate.name.to_owned(),
+			name: bio_gate.name.to_owned(),
 		});
-		added_gates.insert(curr_gate.to_owned());
 
 		bio_gate.promoter.to_owned()
 	}
@@ -444,7 +441,7 @@ impl Assembler {
 	pub fn assemble(
 		&self,
 		lc: &LogicCircuit,
-		assigned_gates: &HashMap<String, AssignedGate>,
+		assigned_gates: &HashMap<String, usize>,
 	) -> GeneticCircuit {
 		let mut genetic_circuit = GeneticCircuit {
 			output: OutputGene {
@@ -489,10 +486,7 @@ impl Assembler {
 		}
 	}
 
-	pub fn assign(
-		&mut self,
-		lc: &LogicCircuit,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
+	pub fn assign(&mut self, lc: &LogicCircuit) -> Result<(HashMap<String, usize>, f64), Error> {
 		if !self.outputs.contains_key(&lc.output.name) {
 			return Err(assign_err(
 				format!("Output '{}' not found.", lc.output.name),
@@ -509,188 +503,212 @@ impl Assembler {
 			}
 		}
 
-		let (assigned_gates, min) = self.try_walk(lc, 1.0)?;
+		let (assigned_gates, score) = self.search(lc)?;
 
-		Ok((assigned_gates, min))
+		Ok((assigned_gates, score))
 	}
 
-	fn try_walk(
-		&self,
-		lc: &LogicCircuit,
-		min: f64,
-	) -> Result<(HashMap<String, AssignedGate>, f64), Error> {
-		let mut assigned_gates = HashMap::new();
-
-		let initial_bl: HashSet<String> = lc.inputs.iter().map(|x| x.name.to_owned()).collect();
-		let mut gate_bl = HashMap::new();
-		self.init_gate_bl(lc.output.name.to_owned(), lc, &mut gate_bl);
-		let ass_gate = self.walk_back(
-			lc.output.name.to_owned(),
-			&lc,
-			&initial_bl,
-			&mut gate_bl,
-			&mut assigned_gates,
-			min,
-		)?;
-
-		let chres = self.try_walk(lc, ass_gate.min);
-		if chres.is_ok() {
-			Ok(chres.unwrap())
-		} else {
-			Ok((assigned_gates, ass_gate.min))
+	fn search(&self, lc: &LogicCircuit) -> Result<(HashMap<String, usize>, f64), Error> {
+		if lc.gates.len() > self.gates_vec.len() {
+			return Err(assign_err(
+				format!(
+					"Number of gates exceeds maximum: '{}'",
+					self.gates_vec.len()
+				),
+				(0, 0),
+			));
 		}
+		let mut layers = HashMap::new();
+		self.init(&lc.output.name, &lc.gates, &mut layers, 1, self.gates.len());
+
+		let mut rng = rand::thread_rng();
+		let uni = Uniform::new_inclusive(0.0f64, 1.0);
+
+		let len = 6000;
+		let mut best_score = 0.0;
+		let mut best_ass = HashMap::new();
+		for i in 0..len {
+			let lr = lrate(i as f64, len as f64);
+			let mut selected_gates = HashMap::new();
+			let mut bl = lc.inputs.iter().map(|arg| arg.name.to_owned()).collect();
+			self.walk(
+				&lc.output.name,
+				0,
+				&lc.gates,
+				&mut selected_gates,
+				&layers,
+				&mut bl,
+				uni,
+				&mut rng,
+			);
+
+			let mut cached = HashMap::new();
+			self.test(
+				&lc.output.name,
+				&lc.gates,
+				&selected_gates,
+				&mut HashSet::new(),
+				&mut cached,
+			);
+			let (off, on) = self.test(
+				&lc.output.name,
+				&lc.gates,
+				&selected_gates,
+				&mut HashSet::new(),
+				&mut cached,
+			);
+
+			let score = on / off;
+			if score > best_score {
+				best_score = score;
+				best_ass = selected_gates.clone();
+			}
+			let out = out_error(score);
+			self.update_weights(
+				lr,
+				out,
+				&lc.output.name,
+				0,
+				&selected_gates,
+				&mut layers,
+				&lc.gates,
+				&mut HashSet::new(),
+			);
+		}
+		Ok((best_ass, best_score))
 	}
 
-	fn init_gate_bl(
+	pub fn init(
 		&self,
-		curr_gate: String,
-		lc: &LogicCircuit,
-		gate_bl: &mut HashMap<String, HashSet<String>>,
+		name: &str,
+		gates: &HashMap<String, Gate>,
+		layers: &mut HashMap<String, Vec<Vec<f64>>>,
+		num_inputs: usize,
+		num_nodes: usize,
 	) {
-		if self.inputs.contains_key(&curr_gate) {
+		if layers.contains_key(name) || !gates.contains_key(name) {
 			return;
 		}
-
-		let gate = lc.gates.get(&curr_gate).unwrap();
+		layers.insert(name.to_owned(), gen_matrix(num_inputs, num_nodes));
+		let gate = gates.get(name).unwrap();
 		for inp in &gate.inputs {
-			self.init_gate_bl(inp.to_owned(), lc, gate_bl);
+			self.init(inp, gates, layers, num_nodes, num_nodes);
 		}
-
-		gate_bl.insert(curr_gate, HashSet::new());
 	}
 
-	fn walk_back(
+	pub fn walk(
 		&self,
-		curr_gate: String,
-		lc: &LogicCircuit,
-		ext_bl: &HashSet<String>,
-		gate_bl: &mut HashMap<String, HashSet<String>>,
-		assigned_gates: &mut HashMap<String, AssignedGate>,
-		min: f64,
-	) -> Result<AssignedGate, Error> {
-		if self.inputs.contains_key(&curr_gate) {
-			let in_rpus = self.inputs.get(&curr_gate).unwrap();
-			return Ok(AssignedGate {
-				on: in_rpus.rpu_off,
-				off: in_rpus.rpu_on,
-				min: in_rpus.rpu_on / in_rpus.rpu_off,
-				name: "0_0".to_string(),
-				bl: HashSet::new(),
-				clear: false,
-			});
+		name: &str,
+		selected: usize,
+		gates: &HashMap<String, Gate>,
+		selected_gates: &mut HashMap<String, usize>,
+		layers: &HashMap<String, Vec<Vec<f64>>>,
+		bl: &mut HashSet<String>,
+		uni: Uniform<f64>,
+		rng: &mut ThreadRng,
+	) {
+		if self.inputs.contains_key(name) || selected_gates.contains_key(name) {
+			return;
 		}
-
-		if assigned_gates.contains_key(&curr_gate) {
-			let ass_gate = assigned_gates.get(&curr_gate).cloned().unwrap();
-			let gbl = gate_bl.get(&curr_gate).unwrap();
-			if !gbl.contains(&ass_gate.name) {
-				return Ok(ass_gate);
-			}
-		}
-
-		let gate = lc.gates.get(&curr_gate).unwrap();
-		let mut res_bl = ext_bl.clone();
-		let mut new_on = 0.0;
-		let mut new_off = f64::MAX;
-		let mut new_min = f64::MAX;
-		let mut names: Vec<String> = Vec::new();
-		let mut clear = false;
+		let gate = gates.get(name).unwrap();
+		let layer = layers.get(name).unwrap();
+		let ch = uni.sample(rng);
+		let sel = self.choose_node(ch, &layer[selected], bl);
+		let node = &self.gates_vec[sel];
+		selected_gates.insert(name.to_owned(), sel);
+		bl.insert(get_group(&node.name));
 		for inp in &gate.inputs {
-			let ass_gate =
-				self.walk_back(inp.to_owned(), lc, &res_bl, gate_bl, assigned_gates, min)?;
-			res_bl.extend(ass_gate.bl);
-			names.push(ass_gate.name);
-			new_on = ass_gate.on.max(new_on);
-			new_off = ass_gate.off.min(new_off);
-			new_min = ass_gate.min.min(new_min);
-			if ass_gate.clear {
-				clear = true;
-			}
+			self.walk(&inp, sel, gates, selected_gates, layers, bl, uni, rng);
 		}
-		if clear {
-			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
-		}
-
-		let mut gbl = gate_bl.get(&curr_gate).cloned().unwrap();
-		gbl.extend(res_bl.clone());
-		let node = self.kd.search(vec![new_on, new_off, 1000.0], &gbl);
-
-		let (name, max_on, max_off, max_rpu) = self.get_on_off(new_on, new_off, node);
-		let num_r = self.get_num_roadblocks(&names);
-		if max_rpu <= min || num_r > 1 {
-			if self.inputs.contains_key(&gate.inputs[0]) {
-				return Err(assign_err(
-					"Failed to find optimal genetic circuit!".to_owned(),
-					(0, 0),
-				));
-			}
-			if gate.inputs.len() > 1 && !self.inputs.contains_key(&gate.inputs[1]) {
-				let parentgbl = gate_bl.get_mut(&gate.inputs[1].to_owned()).unwrap();
-				parentgbl.insert(names[1].to_owned());
-				let res = self.walk_back(
-					curr_gate.to_owned(),
-					lc,
-					ext_bl,
-					gate_bl,
-					assigned_gates,
-					min,
-				);
-				if res.is_ok() {
-					let mut res = res.unwrap();
-					res.clear = true;
-					return Ok(res);
-				} else {
-					self.init_gate_bl(gate.inputs[1].to_owned(), lc, gate_bl);
-				}
-			}
-			gate_bl.insert(curr_gate.to_owned(), HashSet::new());
-
-			let parentgbl = gate_bl.get_mut(&gate.inputs[0].to_owned()).unwrap();
-			parentgbl.insert(names[0].to_owned());
-
-			let mut ass_gate =
-				self.walk_back(curr_gate, lc, ext_bl, gate_bl, assigned_gates, min)?;
-			ass_gate.clear = true;
-			return Ok(ass_gate);
-		}
-
-		res_bl.insert(get_group(&name));
-		let ng = AssignedGate {
-			name: name.to_owned(),
-			on: max_on,
-			off: max_off,
-			min: new_min.min(max_rpu),
-			bl: res_bl,
-			clear,
-		};
-		assigned_gates.insert(curr_gate, ng.clone());
-
-		Ok(ng)
 	}
 
-	fn get_on_off(&self, on: f64, off: f64, node: Option<LeafNode>) -> (String, f64, f64, f64) {
-		if node.is_none() {
-			return ("0_0".to_string(), 0.0, 0.0, 0.0);
+	pub fn test(
+		&self,
+		name: &str,
+		gates: &HashMap<String, Gate>,
+		selected_gates: &HashMap<String, usize>,
+		visited: &mut HashSet<String>,
+		cached: &mut HashMap<String, (f64, f64)>,
+	) -> (f64, f64) {
+		if visited.contains(name) {
+			let cach = cached.get(name).unwrap_or(&(0.0, 0.0));
+			return *cach;
 		}
-		let node = node.unwrap();
-		let gate = self.gates.get(&node.name).unwrap();
-		let new_off = transfer(on, &gate.params);
-		let new_on = transfer(off, &gate.params);
+		if self.inputs.contains_key(name) {
+			let inp = self.inputs.get(name).unwrap();
+			return (inp.rpu_off, inp.rpu_on);
+		}
+		visited.insert(name.to_owned());
+		let gate = gates.get(name).unwrap();
+		let (mut off, mut on) = (0.0f64, 0.0f64);
+		for inp in &gate.inputs {
+			let (coff, con) = self.test(inp, gates, selected_gates, visited, cached);
+			off = coff.max(off);
+			on = con.max(on);
+		}
 
-		(node.name, new_on, new_off, new_off / new_on)
+		let selected = selected_gates.get(name).unwrap();
+		let new_off = transfer(on, &self.gates_vec[*selected].params);
+		let new_on = transfer(off, &self.gates_vec[*selected].params);
+		cached.insert(name.to_owned(), (new_off, new_on));
+
+		(new_off, new_on)
 	}
 
-	fn get_num_roadblocks(&self, names: &Vec<String>) -> u8 {
-		let mut num = 0;
-		for name in names {
-			if name == "0_0" {
+	pub fn choose_node(&self, ch: f64, weights: &Vec<f64>, bl: &HashSet<String>) -> usize {
+		let mut sum = 0.0;
+		for (i, w) in weights.iter().enumerate() {
+			let node = &self.gates_vec[i];
+			if bl.contains(&get_group(&node.name)) {
 				continue;
 			}
-			let gate = self.gates.get(name).unwrap();
-			if self.roadblock.contains(&gate.promoter) {
-				num += 1;
+			sum += w;
+		}
+		let mut acc = 0.0;
+		for (i, w) in weights.iter().enumerate() {
+			let node = &self.gates_vec[i];
+			if bl.contains(&get_group(&node.name)) {
+				continue;
+			}
+			acc += w / sum;
+			if ch <= acc {
+				return i;
 			}
 		}
-		num
+		weights.len() - 1
+	}
+
+	pub fn update_weights(
+		&self,
+		lr: f64,
+		pr: f64,
+		name: &str,
+		prev: usize,
+		selected_gates: &HashMap<String, usize>,
+		layers: &mut HashMap<String, Vec<Vec<f64>>>,
+		gates: &HashMap<String, Gate>,
+		visited: &mut HashSet<String>,
+	) {
+		if visited.contains(name) {
+			return;
+		}
+		if self.inputs.contains_key(name) {
+			return;
+		}
+		visited.insert(name.to_owned());
+		let layer = layers.get_mut(name).unwrap();
+		let id = selected_gates.get(name).unwrap();
+		let weights = layer.get_mut(prev).unwrap();
+		let target = pr - weights[*id];
+		weights[*id] += lr * target;
+
+		let sum: f64 = weights.iter().sum();
+		for w in weights.iter_mut() {
+			*w = *w / sum;
+		}
+		let gate = gates.get(name).unwrap();
+		for inp in &gate.inputs {
+			self.update_weights(lr, pr, inp, *id, selected_gates, layers, gates, visited);
+		}
 	}
 }
