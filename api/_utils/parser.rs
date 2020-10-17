@@ -1,7 +1,7 @@
 use crate::_utils::{helpers, lexer};
 use helpers::{eof, get_breakpoint_kind, syntax_err, Error};
 use lexer::{LexerIter, TokenKind};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::iter::Peekable;
 
 #[derive(Debug, Clone, Serialize)]
@@ -236,7 +236,7 @@ impl<'a> ParserIter<'a> {
 		match (token_type, token) {
 			(TokenKind::Keyword, c) if c == "let" => {
 				let (var_token_type, var, var_pos) = self.tokens.next().ok_or(eof())?;
-				let mut args = Vec::new();
+				let args;
 				if var_token_type == TokenKind::Sign && var == "(" {
 					args = self.parse_args()?;
 				} else if var_token_type == TokenKind::Name {

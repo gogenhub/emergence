@@ -1,7 +1,6 @@
 extern crate base64;
 extern crate chrono;
 extern crate fs_extra;
-extern crate meval;
 extern crate regex;
 extern crate serde;
 extern crate serde_json;
@@ -10,7 +9,6 @@ mod _utils;
 
 use _utils::{assembler, builder, helpers, lexer, parser};
 use assembler::{Assembler, GeneticCircuit};
-use builder::LogicCircuit;
 use helpers::Error;
 use lambda_runtime::{error::HandlerError, start, Context};
 use once_cell::sync::Lazy;
@@ -22,8 +20,7 @@ static ASSIGNER: Lazy<Mutex<Assembler>> = Lazy::new(|| Mutex::new(Assembler::new
 
 #[derive(Serialize, Debug)]
 struct CompileResult {
-	min_score: f64,
-	out_score: f64,
+	score: f64,
 	gc: GeneticCircuit,
 	gates_dna: String,
 	out_dna: String,
@@ -80,14 +77,13 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	if !ass.loaded {
 		ass.load();
 	}
-	let (ass_gates, min_score, out_score) = ass.assign(&lc)?;
+	let (ass_gates, score) = ass.assign(&lc)?;
 	let mut gc = ass.assemble(&lc, &ass_gates);
 	let simulation = ass.simulate(&tb, &gc);
 	ass.apply_rules(&mut gc);
 	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = ass.make_dna(&gc);
 	Ok(CompileResult {
-		min_score: min_score,
-		out_score: out_score,
+		score,
 		gc,
 		gates_dna,
 		out_dna,

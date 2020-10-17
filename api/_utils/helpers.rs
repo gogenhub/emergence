@@ -4,6 +4,7 @@ use assembler::{Params, PartKind};
 use builder::GateKind;
 use chrono::Utc;
 use parser::{Arg, BreakpointKind};
+use rand::distributions::{Distribution, Uniform};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -133,6 +134,29 @@ pub fn transfer(x: f64, params: &Params) -> f64 {
 
 pub fn lerp(curr: f64, target: f64, step: f64) -> f64 {
 	step * (target - curr) + curr
+}
+
+pub fn gen_matrix(x: usize, y: usize) -> Vec<Vec<f64>> {
+	let mut res = Vec::new();
+	let mut rng = rand::thread_rng();
+	let uni = Uniform::new_inclusive(0.0f64, 1.0);
+	for _ in 0..x {
+		let mut gates = Vec::new();
+		for _ in 0..y {
+			let chance = uni.sample(&mut rng);
+			gates.push(chance);
+		}
+		res.push(gates)
+	}
+	res
+}
+
+pub fn out_error(x: f64) -> f64 {
+	1.0 - (-x / 200.0).exp()
+}
+
+pub fn lrate(i: f64, len: f64) -> f64 {
+	(-i / len).exp()
 }
 
 pub struct MotionParams {

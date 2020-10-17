@@ -54,6 +54,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 		fn_map: &mut HashMap<String, (usize, usize, bool)>,
 		param_map: &mut HashMap<&String, (usize, bool)>,
 		local_vars_map: &mut HashMap<&String, (usize, bool)>,
+		retr_map: &mut HashMap<&String, (usize, bool)>,
 	) -> Result<(), Error> {
 		if op.kind == OperationKind::Call && !fn_map.contains_key(&op.name) {
 			return Err(compile_err(
@@ -96,6 +97,13 @@ impl<'a> LogicCircuitBuilder<'a> {
 				));
 			}
 
+			if retr_map.contains_key(&arg.name) {
+				return Err(compile_err(
+					format!("Can't pass return variable '{}'.", arg.name),
+					(arg.pos, arg.name.len()),
+				));
+			}
+
 			(param_map
 				.get_mut(&arg.name)
 				.or(local_vars_map.get_mut(&arg.name))
@@ -132,7 +140,8 @@ impl<'a> LogicCircuitBuilder<'a> {
 		}
 
 		let mut local_vars_map = HashMap::new();
-		local_vars_map.insert(&func.ret.name, (func.ret.pos, false));
+		let mut ret_map = HashMap::new();
+		ret_map.insert(&func.ret.name, (func.ret.pos, false));
 		for exp in &func.body {
 			match exp {
 				Expression::Declare(declare) => {
@@ -153,18 +162,41 @@ impl<'a> LogicCircuitBuilder<'a> {
 								(var.pos, var.name.len()),
 							));
 						}
+
+						if ret_map.contains_key(&var.name) {
+							return Err(compile_err(
+								format!(
+									"Variable can't have the same name as return variable: '{}'.",
+									var.name
+								),
+								(var.pos, var.name.len()),
+							));
+						}
+
 						local_vars_map.insert(&var.name, (var.pos, false));
 					}
 				}
 				Expression::Assign(assign) => {
-					if !local_vars_map.contains_key(&assign.var.name) {
+					if !local_vars_map.contains_key(&assign.var.name)
+						&& !ret_map.contains_key(&assign.var.name)
+					{
 						return Err(compile_err(
 							format!("Variable '{}' not found.", assign.var.name),
 							(assign.var.pos, assign.var.name.len()),
 						));
 					}
-					(local_vars_map.get_mut(&assign.var.name).unwrap()).1 = true;
-					self.check_op_errors(&assign.op, fn_map, &mut params_map, &mut local_vars_map)?;
+					(local_vars_map
+						.get_mut(&assign.var.name)
+						.or(ret_map.get_mut(&assign.var.name))
+						.unwrap())
+					.1 = true;
+					self.check_op_errors(
+						&assign.op,
+						fn_map,
+						&mut params_map,
+						&mut local_vars_map,
+						&mut ret_map,
+					)?;
 				}
 			}
 		}
@@ -182,6 +214,15 @@ impl<'a> LogicCircuitBuilder<'a> {
 			if !used {
 				return Err(compile_err(
 					format!("Variable '{}' never used.", key),
+					(pos, key.len()),
+				));
+			}
+		}
+
+		for (key, (pos, used)) in ret_map {
+			if !used {
+				return Err(compile_err(
+					format!("Return variable '{}' never used.", key),
 					(pos, key.len()),
 				));
 			}
@@ -384,7 +425,6 @@ impl<'a> LogicCircuitBuilder<'a> {
 			inputs: ins,
 			output: out,
 		};
-		print!("{:?}", lc);
 		lc
 	}
 

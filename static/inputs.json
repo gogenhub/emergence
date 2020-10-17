@@ -1,7 +1,7 @@
 {
 	"LacI": {
 		"name": "LacI",
-		"promoter": "pTac",
+		"promoter": "pLac",
 		"rpu_off": 0.0034,
 		"rpu_on": 2.8
 	},
