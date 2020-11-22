@@ -7,16 +7,16 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{assembler, builder, helpers, lexer, parser};
-use assembler::{Assembler, GeneticCircuit};
+use _utils::{assembler, builder, data, dna_maker, helpers, lexer, parser, simulator};
+use assembler::Assembler;
+use data::GeneticCircuit;
+use dna_maker::make_dna;
 use helpers::Error;
 use lambda_runtime::{error::HandlerError, start, Context};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::{collections::HashMap, error::Error as StdError, str, sync::Mutex};
-
-static ASSIGNER: Lazy<Mutex<Assembler>> = Lazy::new(|| Mutex::new(Assembler::new()));
+use simulator::simulate;
+use std::{collections::HashMap, error::Error as StdError, str};
 
 #[derive(Serialize, Debug)]
 struct CompileResult {
@@ -27,6 +27,7 @@ struct CompileResult {
 	gates_plasmid: String,
 	out_plasmid: String,
 	simulation: HashMap<String, Vec<f64>>,
+	steady_states: HashMap<String, (f64, f64)>,
 }
 
 #[derive(Deserialize)]
@@ -73,15 +74,12 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut();
 	let tb = bld.build_testbench();
-	let mut ass = ASSIGNER.lock().unwrap();
-	if !ass.loaded {
-		ass.load();
-	}
-	let (ass_gates, score) = ass.assign(&lc)?;
-	let mut gc = ass.assemble(&lc, &ass_gates);
-	let simulation = ass.simulate(&tb, &gc);
+	let mut ass = Assembler::new(lc);
+	let (ass_gates, score) = ass.assign()?;
+	let mut gc = ass.assemble(&ass_gates);
+	let (simulation, steady_states) = simulate(&tb, &gc);
 	ass.apply_rules(&mut gc);
-	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = ass.make_dna(&gc);
+	let (gates_dna, out_dna, gates_plasmid, out_plasmid) = make_dna(&gc);
 	Ok(CompileResult {
 		score,
 		gc,
@@ -90,6 +88,7 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 		gates_plasmid,
 		out_plasmid,
 		simulation,
+		steady_states,
 	})
 }
 

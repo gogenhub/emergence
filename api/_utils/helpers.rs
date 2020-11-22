@@ -1,8 +1,8 @@
-use crate::_utils::{assembler, builder, parser};
+use crate::_utils::{builder, data, parser};
 
-use assembler::{Params, PartKind};
 use builder::GateKind;
 use chrono::Utc;
+use data::{Params, PartKind};
 use parser::{Arg, BreakpointKind};
 use rand::distributions::{Distribution, Uniform};
 use serde::Serialize;
@@ -132,10 +132,6 @@ pub fn transfer(x: f64, params: &Params) -> f64 {
 	params.ymin + (params.ymax - params.ymin) / (1.0 + (x / params.k).powf(params.n))
 }
 
-pub fn lerp(curr: f64, target: f64, step: f64) -> f64 {
-	step * (target - curr) + curr
-}
-
 pub fn gen_matrix(x: usize, y: usize) -> Vec<Vec<f64>> {
 	let mut res = Vec::new();
 	let mut rng = rand::thread_rng();
@@ -155,38 +151,12 @@ pub fn out_error(x: f64) -> f64 {
 	1.0 - (-x / 200.0).exp()
 }
 
+pub fn inv_out_error(x: f64) -> f64 {
+	(-x / 10.0).exp()
+}
+
 pub fn lrate(i: f64, len: f64) -> f64 {
 	(-i / len).exp()
-}
-
-pub struct MotionParams {
-	pos_pos_coef: f64,
-	pos_vel_coef: f64,
-	vel_pos_coef: f64,
-	vel_vel_coef: f64,
-}
-
-pub fn damp(state: f64, velocity: f64, target_state: f64, params: &MotionParams) -> (f64, f64) {
-	let old_pos = state - target_state;
-	let old_vel = velocity;
-
-	let new_state = old_pos * params.pos_pos_coef + old_vel * params.pos_vel_coef + target_state;
-	let new_velocity = old_pos * params.vel_pos_coef + old_vel * params.vel_vel_coef;
-
-	(new_state, new_velocity)
-}
-
-pub fn damp_params(angular_freq: f64, delta_time: f64) -> MotionParams {
-	let exp_term = (-angular_freq * delta_time).exp();
-	let time_exp = delta_time * exp_term;
-	let time_exp_freq = time_exp * angular_freq;
-
-	MotionParams {
-		pos_pos_coef: time_exp_freq + exp_term,
-		pos_vel_coef: time_exp,
-		vel_pos_coef: -angular_freq * time_exp_freq,
-		vel_vel_coef: -time_exp_freq + exp_term,
-	}
 }
 
 pub fn get_group(curr: &str) -> String {
