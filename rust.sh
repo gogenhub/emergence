@@ -8,6 +8,15 @@
 # It runs on Unix shells like {a,ba,da,k,z}sh. It uses the common `local`
 # extension. Note: Most shells limit `local` to 1 var per line, contra bash.
 
+if [ "$KSH_VERSION" = 'Version JM 93t+ 2010-03-05' ]; then
+    # The version of ksh93 that ships with many illumos systems does not
+    # support the "local" extension.  Print a message rather than fail in
+    # subtle ways later on:
+    echo 'rustup does not work with this ksh93 version; please try bash!' >&2
+    exit 1
+fi
+
+
 set -u
 
 # If RUSTUP_UPDATE_ROOT is unset or empty, default it.
@@ -16,7 +25,7 @@ RUSTUP_UPDATE_ROOT="${RUSTUP_UPDATE_ROOT:-https://static.rust-lang.org/rustup}"
 #XXX: If you change anything here, please make the same changes in setup_mode.rs
 usage() {
     cat 1>&2 <<EOF
-rustup-init 1.22.1 (76644d669 2020-07-08)
+rustup-init 1.23.0 (af3c77d66 2020-11-27)
 The installer for rustup
 
 USAGE:
@@ -192,6 +201,24 @@ get_architecture() {
         fi
     fi
 
+    if [ "$_ostype" = SunOS ]; then
+        # Both Solaris and illumos presently announce as "SunOS" in "uname -s"
+        # so use "uname -o" to disambiguate.  We use the full path to the
+        # system uname in case the user has coreutils uname first in PATH,
+        # which has historically sometimes printed the wrong value here.
+        if [ "$(/usr/bin/uname -o)" = illumos ]; then
+            _ostype=illumos
+        fi
+
+        # illumos systems have multi-arch userlands, and "uname -m" reports the
+        # machine hardware name; e.g., "i86pc" on both 32- and 64-bit x86
+        # systems.  Check for the native (widest) instruction set on the
+        # running kernel:
+        if [ "$_cputype" = i86pc ]; then
+            _cputype="$(isainfo -n)"
+        fi
+    fi
+
     case "$_ostype" in
 
         Android)
@@ -217,6 +244,10 @@ get_architecture() {
 
         Darwin)
             _ostype=apple-darwin
+            ;;
+
+        illumos)
+            _ostype=unknown-illumos
             ;;
 
         MINGW* | MSYS* | CYGWIN*)
@@ -260,7 +291,7 @@ get_architecture() {
             fi
             ;;
 
-        aarch64)
+        aarch64 | arm64)
             _cputype=aarch64
             ;;
 
@@ -386,6 +417,8 @@ ignore() {
 downloader() {
     local _dld
     local _ciphersuites
+    local _err
+    local _status
     if check_cmd curl; then
         _dld=curl
     elif check_cmd wget; then
@@ -400,30 +433,50 @@ downloader() {
         get_ciphersuites_for_curl
         _ciphersuites="$RETVAL"
         if [ -n "$_ciphersuites" ]; then
-            curl --proto '=https' --tlsv1.2 --ciphers "$_ciphersuites" --silent --show-error --fail --location "$1" --output "$2"
+            _err=$(curl --proto '=https' --tlsv1.2 --ciphers "$_ciphersuites" --silent --show-error --fail --location "$1" --output "$2" 2>&1)
+            _status=$?
         else
             echo "Warning: Not enforcing strong cipher suites for TLS, this is potentially less secure"
             if ! check_help_for "$3" curl --proto --tlsv1.2; then
                 echo "Warning: Not enforcing TLS v1.2, this is potentially less secure"
-                curl --silent --show-error --fail --location "$1" --output "$2"
+                _err=$(curl --silent --show-error --fail --location "$1" --output "$2" 2>&1)
+                _status=$?
             else
-                curl --proto '=https' --tlsv1.2 --silent --show-error --fail --location "$1" --output "$2"
+                _err=$(curl --proto '=https' --tlsv1.2 --silent --show-error --fail --location "$1" --output "$2" 2>&1)
+                _status=$?
             fi
         fi
+        if [ -n "$_err" ]; then
+            echo "$_err" >&2
+            if echo "$_err" | grep -q 404$; then
+                err "installer for platform '$3' not found, this may be unsupported"
+            fi
+        fi
+        return $_status
     elif [ "$_dld" = wget ]; then
         get_ciphersuites_for_wget
         _ciphersuites="$RETVAL"
         if [ -n "$_ciphersuites" ]; then
-            wget --https-only --secure-protocol=TLSv1_2 --ciphers "$_ciphersuites" "$1" -O "$2"
+            _err=$(wget --https-only --secure-protocol=TLSv1_2 --ciphers "$_ciphersuites" "$1" -O "$2" 2>&1)
+            _status=$?
         else
             echo "Warning: Not enforcing strong cipher suites for TLS, this is potentially less secure"
             if ! check_help_for "$3" wget --https-only --secure-protocol; then
                 echo "Warning: Not enforcing TLS v1.2, this is potentially less secure"
-                wget "$1" -O "$2"
+                _err=$(wget "$1" -O "$2" 2>&1)
+                _status=$?
             else
-                wget --https-only --secure-protocol=TLSv1_2 "$1" -O "$2"
+                _err=$(wget --https-only --secure-protocol=TLSv1_2 "$1" -O "$2" 2>&1)
+                _status=$?
             fi
         fi
+        if [ -n "$_err" ]; then
+            echo "$_err" >&2
+            if echo "$_err" | grep -q ' 404 Not Found$'; then
+                err "installer for platform '$3' not found, this may be unsupported"
+            fi
+        fi
+        return $_status
     else
         err "Unknown downloader"   # should not reach here
     fi
