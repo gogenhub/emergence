@@ -39,27 +39,6 @@ pub struct Input {
 	pub rpu_on: f64,
 }
 
-#[derive(Serialize, Debug)]
-pub struct Gene {
-	pub inputs: Vec<String>,
-	pub promoter: String,
-	pub color: String,
-	pub name: String,
-}
-
-#[derive(Serialize, Debug)]
-pub struct OutputGene {
-	pub name: String,
-	pub inputs: Vec<String>,
-}
-
-#[derive(Serialize, Debug)]
-pub struct GeneticCircuit {
-	pub output: OutputGene,
-	pub inputs: Vec<Input>,
-	pub genes: Vec<Gene>,
-}
-
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Params {
 	pub ymax: f64,
@@ -71,20 +50,15 @@ pub struct Params {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct BioGate {
+pub struct Gene {
 	pub name: String,
 	pub parts: Vec<String>,
 	pub promoter: String,
+	#[serde(default)]
+	pub color: String,
+	#[serde(default)]
+	pub inputs: Vec<String>,
 	pub params: Params,
-}
-
-#[derive(Clone, Debug)]
-pub struct AssignedGate {
-	on: f64,
-	off: f64,
-	min: f64,
-	name: String,
-	rpu: f64,
 }
 
 #[derive(Deserialize)]
@@ -94,8 +68,8 @@ pub struct Rules {
 }
 
 pub struct Data {
-	pub gates: HashMap<String, BioGate>,
-	pub gates_vec: Vec<BioGate>,
+	pub genes: HashMap<String, Gene>,
+	pub genes_vec: Vec<Gene>,
 	pub parts: HashMap<String, Part>,
 	pub inputs: HashMap<String, Input>,
 	pub outputs: HashMap<String, String>,
@@ -106,8 +80,8 @@ pub struct Data {
 impl Data {
 	pub fn new() -> Self {
 		Self {
-			gates: HashMap::new(),
-			gates_vec: Vec::new(),
+			genes: HashMap::new(),
+			genes_vec: Vec::new(),
 			parts: HashMap::new(),
 			inputs: HashMap::new(),
 			outputs: HashMap::new(),
@@ -121,7 +95,7 @@ impl Data {
 
 	pub fn load(&mut self) {
 		let dir = env::current_dir().unwrap();
-		let gates_path = format!("{}/static/gates.json", dir.display());
+		let gates_path = format!("{}/static/genes.json", dir.display());
 		let parts_path = format!("{}/static/parts.json", dir.display());
 		let inputs_path = format!("{}/static/inputs.json", dir.display());
 		let outputs_path = format!("{}/static/outputs.json", dir.display());
@@ -135,7 +109,7 @@ impl Data {
 		let rules_f = read_to_string(rules_path).unwrap();
 		let roadblock_f = read_to_string(roadblock_path).unwrap();
 
-		let gates: HashMap<String, BioGate> = from_str(&gates_f).unwrap();
+		let genes: HashMap<String, Gene> = from_str(&gates_f).unwrap();
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
 		let outputs: HashMap<String, String> = from_str(&outputs_f).unwrap();
@@ -145,20 +119,12 @@ impl Data {
 		let gate_rules = rules.get("gates").unwrap();
 		let promoter_rules = rules.get("promoters").unwrap();
 		let new_rules: Rules = Rules {
-			gates: gate_rules
-				.iter()
-				.enumerate()
-				.map(|(i, name)| (name.to_owned(), i as u32))
-				.collect(),
-			promoters: promoter_rules
-				.iter()
-				.enumerate()
-				.map(|(i, name)| (name.to_owned(), i as u32))
-				.collect(),
+			gates: gate_rules.iter().enumerate().map(|(i, name)| (name.to_owned(), i as u32)).collect(),
+			promoters: promoter_rules.iter().enumerate().map(|(i, name)| (name.to_owned(), i as u32)).collect(),
 		};
 
-		self.gates = gates.clone();
-		self.gates_vec = gates.values().cloned().collect();
+		self.genes = genes.clone();
+		self.genes_vec = genes.values().cloned().collect();
 		self.parts = parts;
 		self.inputs = inputs;
 		self.rules = new_rules;
@@ -171,12 +137,12 @@ pub fn get_part(name: &str) -> &Part {
 	DATA.parts.get(name).unwrap()
 }
 
-pub fn get_gate(name: &str) -> &BioGate {
-	DATA.gates.get(name).unwrap()
+pub fn get_gene(name: &str) -> &Gene {
+	DATA.genes.get(name).unwrap()
 }
 
-pub fn get_gate_at(i: usize) -> &'static BioGate {
-	DATA.gates_vec.get(i).unwrap()
+pub fn get_gene_at(i: usize) -> &'static Gene {
+	DATA.genes_vec.get(i).unwrap()
 }
 
 pub fn get_rules() -> &'static Rules {
@@ -191,14 +157,6 @@ pub fn has_input(name: &str) -> bool {
 	DATA.inputs.contains_key(name)
 }
 
-pub fn get_output(name: &str) -> &str {
-	DATA.outputs.get(name).unwrap()
-}
-
-pub fn has_output(name: &str) -> bool {
-	DATA.outputs.contains_key(name)
-}
-
-pub fn gates_len() -> usize {
-	DATA.gates_vec.len()
+pub fn genes_len() -> usize {
+	DATA.genes_vec.len()
 }

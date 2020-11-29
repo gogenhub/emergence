@@ -1,3 +1,4 @@
+use crate::_utils::helpers::Loggable;
 use regex::Regex;
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
@@ -8,12 +9,24 @@ pub enum TokenKind {
 	Operation,
 	Name,
 	Keyword,
-	Number,
-	Bool,
+	Value,
 	Unknown,
 }
 
-type Token = (TokenKind, String, usize);
+pub struct Token {
+	pub kind: TokenKind,
+	pub value: String,
+	pub pos: usize,
+}
+
+impl Loggable for Token {
+	fn value(&self) -> &str {
+		&self.value
+	}
+	fn pos(&self) -> usize {
+		self.pos
+	}
+}
 
 pub struct LexerIter<'a> {
 	chars: Peekable<Enumerate<Chars<'a>>>,
@@ -61,23 +74,41 @@ impl<'a> Iterator for LexerIter<'a> {
 			};
 			let res = match group.as_str() {
 				"\n" | "\t" | " " => None,
-				"let" | "func" | "event" | "test" => {
-					Some((TokenKind::Keyword, group.to_owned(), pos))
-				}
-				"(" | ")" | "{" | "}" | "," | ";" | "=" | "->" | "@" => {
-					Some((TokenKind::Sign, group.to_owned(), pos))
-				}
-				"~" | "~|" | "~&" | "~^" | "|" | "&" | "^" => {
-					Some((TokenKind::Operation, group.to_owned(), pos))
-				}
-				"true" | "false" => Some((TokenKind::Bool, group.to_owned(), pos)),
-				c if chars.is_match(&c.to_string()) => {
-					Some((TokenKind::Name, group.to_owned(), pos))
-				}
-				c if numbers.is_match(&c.to_string()) => {
-					Some((TokenKind::Number, group.to_owned(), pos))
-				}
-				_ => Some((TokenKind::Unknown, group.to_owned(), pos)),
+				"let" | "out" | "func" | "test" => Some(Token {
+					kind: TokenKind::Keyword,
+					value: group.to_owned(),
+					pos,
+				}),
+				"(" | ")" | "{" | "}" | "," | ";" | "=" | "@" => Some(Token {
+					kind: TokenKind::Sign,
+					value: group.to_owned(),
+					pos,
+				}),
+				"~" | "~|" | "~&" | "~^" | "|" | "&" | "^" => Some(Token {
+					kind: TokenKind::Operation,
+					value: group.to_owned(),
+					pos,
+				}),
+				"true" | "false" => Some(Token {
+					kind: TokenKind::Value,
+					value: group.to_owned(),
+					pos,
+				}),
+				c if chars.is_match(&c.to_string()) => Some(Token {
+					kind: TokenKind::Name,
+					value: group.to_owned(),
+					pos,
+				}),
+				c if numbers.is_match(&c.to_string()) => Some(Token {
+					kind: TokenKind::Value,
+					value: group.to_owned(),
+					pos,
+				}),
+				_ => Some(Token {
+					kind: TokenKind::Unknown,
+					value: group.to_owned(),
+					pos,
+				}),
 			};
 			if res.is_some() {
 				return res;
