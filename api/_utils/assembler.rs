@@ -27,7 +27,7 @@ impl Assembler {
 	}
 	pub fn assemble(&self, lc: &LogicCircuit) -> GeneticCircuit {
 		let mut genes = Vec::new();
-		let mut cached: HashMap<String, String> = HashMap::new();
+		let mut cached: HashMap<String, Gene> = HashMap::new();
 		for (i, selected) in self.selected_genes.iter().rev().enumerate() {
 			let mut gene = get_gene_at(*selected).clone();
 			let gate = lc.gates.get(i).unwrap();
@@ -37,12 +37,12 @@ impl Assembler {
 				let input = if has_input(&inp) {
 					get_input(&inp).promoter.to_owned()
 				} else {
-					cached.get(inp).unwrap().to_owned()
+					cached.get(inp).unwrap().promoter.to_owned()
 				};
 				inputs.push(input);
 			}
 			gene.inputs = inputs;
-			cached.insert(gate.name.to_owned(), gene.promoter.to_owned());
+			cached.insert(gate.name.to_owned(), gene.clone());
 
 			let val = map(i, 0, self.selected_genes.len(), 0, 355);
 			let color_hex = Hsl::from(val as f32, 100.0, 50.0).to_rgb().to_css_hex_string();
@@ -52,7 +52,7 @@ impl Assembler {
 		let (dna, plasmid) = self.make_dna(&genes);
 		let genetic_circuit = GeneticCircuit {
 			inputs: lc.inputs.iter().map(|x| get_input(&x.name).clone()).collect(),
-			output: lc.output.name.to_owned(),
+			output: cached.get(&lc.output.name).unwrap().name.to_owned(),
 			genes,
 			dna,
 			plasmid,
