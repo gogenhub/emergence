@@ -11,6 +11,10 @@ static DATA: Lazy<Data> = Lazy::new(|| {
 	d
 });
 
+pub fn get_data() -> &'static Lazy<Data> {
+	&DATA
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum PartKind {
 	Promoter,
@@ -59,6 +63,39 @@ pub struct Gene {
 	#[serde(default)]
 	pub inputs: Vec<String>,
 	pub params: Params,
+	#[serde(default)]
+	pub state: f64,
+}
+
+impl Gene {
+	pub fn group(&self) -> String {
+		let group: Vec<&str> = self.name.split("_").collect();
+		if group.len() < 2 {
+			return "none".to_owned();
+		}
+		group[1].to_owned()
+	}
+
+	pub fn transfer(&self, x: f64) -> f64 {
+		self.params.ymin + (self.params.ymax - self.params.ymin) / (1.0 + (x / self.params.k).powf(self.params.n))
+	}
+
+	pub fn model(&self, sum: f64) -> f64 {
+		self.transfer(sum) - self.params.decay * self.state
+	}
+
+	pub fn steady_state(&self, steady_states: HashMap<String, (f64, f64)>) -> (f64, f64) {
+		let (mut sum_off, mut sum_on) = (0.0, 0.0);
+		for inp in &self.inputs {
+			let (off, on) = steady_states.get(inp).unwrap();
+			sum_on += on;
+			sum_off += off;
+		}
+
+		let steady_off = self.transfer(sum_on) / self.params.decay;
+		let steady_on = self.transfer(sum_off) / self.params.decay;
+		(steady_off, steady_on)
+	}
 }
 
 #[derive(Deserialize)]
@@ -119,8 +156,16 @@ impl Data {
 		let gate_rules = rules.get("gates").unwrap();
 		let promoter_rules = rules.get("promoters").unwrap();
 		let new_rules: Rules = Rules {
-			gates: gate_rules.iter().enumerate().map(|(i, name)| (name.to_owned(), i as u32)).collect(),
-			promoters: promoter_rules.iter().enumerate().map(|(i, name)| (name.to_owned(), i as u32)).collect(),
+			gates: gate_rules
+				.iter()
+				.enumerate()
+				.map(|(i, name)| (name.to_owned(), i as u32))
+				.collect(),
+			promoters: promoter_rules
+				.iter()
+				.enumerate()
+				.map(|(i, name)| (name.to_owned(), i as u32))
+				.collect(),
 		};
 
 		self.genes = genes.clone();
@@ -131,32 +176,32 @@ impl Data {
 		self.outputs = outputs;
 		self.roadblock = roadblock;
 	}
-}
 
-pub fn get_part(name: &str) -> &Part {
-	DATA.parts.get(name).unwrap()
-}
+	pub fn get_part(&self, name: &str) -> &Part {
+		self.parts.get(name).unwrap()
+	}
 
-pub fn get_gene(name: &str) -> &Gene {
-	DATA.genes.get(name).unwrap()
-}
+	pub fn get_gene(&self, name: &str) -> &Gene {
+		self.genes.get(name).unwrap()
+	}
 
-pub fn get_gene_at(i: usize) -> &'static Gene {
-	DATA.genes_vec.get(i).unwrap()
-}
+	pub fn get_gene_at(&self, i: usize) -> &Gene {
+		self.genes_vec.get(i).unwrap()
+	}
 
-pub fn get_rules() -> &'static Rules {
-	&DATA.rules
-}
+	pub fn get_rules(&self) -> &Rules {
+		&self.rules
+	}
 
-pub fn get_input(name: &str) -> &Input {
-	DATA.inputs.get(name).unwrap()
-}
+	pub fn get_input(&self, name: &str) -> &Input {
+		self.inputs.get(name).unwrap()
+	}
 
-pub fn has_input(name: &str) -> bool {
-	DATA.inputs.contains_key(name)
-}
+	pub fn has_input(&self, name: &str) -> bool {
+		self.inputs.contains_key(name)
+	}
 
-pub fn genes_len() -> usize {
-	DATA.genes_vec.len()
+	pub fn genes_len(&self) -> usize {
+		self.genes_vec.len()
+	}
 }

@@ -1,36 +1,26 @@
 use crate::_utils::{helpers, lexer};
-use helpers::{eof, err, exp, get_breakpoint_kind, get_op_kind, Error, Loggable};
-use lexer::{LexerIter, TokenKind};
-use serde::Serialize;
+use helpers::Error;
+use lexer::{LexerIter, Token, TokenKind};
 use std::iter::Peekable;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Arg {
-	pub name: String,
+#[derive(Debug)]
+pub struct LogicOp {
+	pub var: Token,
 	pub pos: usize,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum OperationKind {
-	NOT,
-	NOR,
-	Unknown,
+	pub symbol: Token,
+	pub args: Vec<Token>,
 }
 
 #[derive(Debug)]
-pub struct Operation {
-	pub var: Arg,
-	pub pos: usize,
-	pub kind: OperationKind,
-	pub args: Vec<Arg>,
+pub enum Operation {
+	Logic(LogicOp),
 }
 
 #[derive(Debug)]
 pub struct Function {
-	pub name: String,
-	pub pos: usize,
-	pub params: Vec<Arg>,
-	pub out: Arg,
+	pub iden: Token,
+	pub params: Vec<Token>,
+	pub out: Token,
 	pub body: Vec<Operation>,
 }
 
@@ -42,31 +32,21 @@ pub enum Def {
 
 #[derive(Debug)]
 pub struct TestbenchAssignment {
-	pub name: String,
-	pub pos: usize,
+	pub iden: Token,
 	pub value: bool,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BreakpointKind {
-	At,
-	Unknown,
 }
 
 #[derive(Debug)]
 pub struct Breakpoint {
-	pub name: String,
-	pub pos: usize,
-	pub kind: BreakpointKind,
+	pub symbol: Token,
 	pub time: u32,
 	pub assignments: Vec<TestbenchAssignment>,
 }
 
 #[derive(Debug)]
 pub struct Test {
-	pub pos: usize,
-	pub name: String,
-	pub params: Vec<Arg>,
+	pub iden: Token,
+	pub params: Vec<Token>,
 	pub body: Vec<Breakpoint>,
 }
 
@@ -74,94 +54,37 @@ pub struct ParserIter<'a> {
 	tokens: Peekable<LexerIter<'a>>,
 }
 
-impl Def {
-	pub fn is_func(&self) -> bool {
-		match self {
-			Self::Function(_) => true,
-			_ => false,
-		}
-	}
-
-	pub fn func(self) -> Function {
-		match self {
-			Self::Function(f) => f,
-			_ => panic!("yo?"),
-		}
-	}
-
-	pub fn test(self) -> Test {
-		match self {
-			Self::Test(t) => t,
-			_ => panic!("yo?"),
-		}
-	}
-}
-
-impl Loggable for Arg {
-	fn value(&self) -> &str {
-		&self.name
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
-}
-
-impl Loggable for Breakpoint {
-	fn value(&self) -> &str {
-		&self.name
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
-}
-
-impl Loggable for Function {
-	fn value(&self) -> &str {
-		&self.name
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
-}
-
-impl Loggable for Test {
-	fn value(&self) -> &str {
-		&self.name
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
-}
-
-impl Loggable for TestbenchAssignment {
-	fn value(&self) -> &str {
-		&self.name
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
-}
-
 impl<'a> ParserIter<'a> {
 	pub fn new(tokens: LexerIter<'a>) -> Self {
-		Self { tokens: tokens.peekable() }
+		Self {
+			tokens: tokens.peekable(),
+		}
 	}
 
-	fn parse_args(&mut self) -> Result<Vec<Arg>, Error> {
-		let mut args = Vec::new();
-		while let Some(token) = self.tokens.next() {
-			exp(token.kind == TokenKind::Name, "Expected name, got: ", &token)?;
+	fn get_token(&mut self, kind: TokenKind, value_pre: Option<&[&str]>) -> Result<Token, Error> {
+		let value: Option<Vec<String>> = value_pre.map(|x| x.iter().map(|a| a.to_string()).collect());
+		let token = self.tokens.next().ok_or(Error::EndOfFile)?;
+		match (token.kind == kind, value) {
+			(true, None) => Ok(token),
+			(true, Some(value)) => {
+				if value.contains(&token.value) {
+					Ok(token)
+				} else {
+					Err(Error::UnexpectedToken(token.pos, token.value.len()))
+				}
+			}
+			(false, _) => Err(Error::UnexpectedToken(token.pos, token.value.len())),
+		}
+	}
 
-			args.push(Arg {
-				name: token.value,
-				pos: token.pos,
-			});
-			let token = self.tokens.next().ok_or(eof())?;
-			exp(
-				token.kind == TokenKind::Sign && (token.value != "," || token.value != ")"),
-				"Expected token ',' or ')', got: ",
-				&token,
-			)?;
+	fn parse_args(&mut self) -> Result<Vec<Token>, Error> {
+		let _ = self.get_token(TokenKind::Sign, Some(&["("]))?;
+		let mut args = Vec::new();
+		while let Some(_) = self.tokens.peek() {
+			let token = self.get_token(TokenKind::Name, None)?;
+
+			args.push(token);
+			let token = self.get_token(TokenKind::Sign, Some(&[",", ")"]))?;
 
 			if token.value == ")" {
 				break;
@@ -170,138 +93,56 @@ impl<'a> ParserIter<'a> {
 		Ok(args)
 	}
 
-	fn parse_out(&mut self) -> Result<Arg, Error> {
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(
-			token.kind == TokenKind::Keyword && token.value == "out",
-			"Expected 'out' keyword, got: ",
-			&token,
-		)?;
+	fn parse_out(&mut self) -> Result<Token, Error> {
+		let token = self.get_token(TokenKind::Name, None)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&[";"]))?;
 
-		let name = self.tokens.next().ok_or(eof())?;
-		exp(name.kind == TokenKind::Name, "Expected name, got: ", &name)?;
-
-		let eol = self.tokens.next().ok_or(eof())?;
-		exp(eol.kind == TokenKind::Sign && eol.value == ";", "Expected sign ';', got: ", &eol)?;
-
-		Ok(Arg {
-			name: name.value,
-			pos: name.pos,
-		})
+		Ok(token)
 	}
 
 	fn parse_operation(&mut self) -> Result<Operation, Error> {
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(token.kind == TokenKind::Name, "Expected name, got:", &token)?;
+		let token = self.get_token(TokenKind::Name, None)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["="]))?;
+		let token1 = self.get_token(TokenKind::Operation, Some(&["not", "nor"]))?;
+		let args = self.parse_args()?;
+		let _ = self.get_token(TokenKind::Sign, Some(&[";"]))?;
 
-		let equal = self.tokens.next().ok_or(eof())?;
-		exp(equal.kind == TokenKind::Sign && equal.value == "=", "Expected sign '=', got:", &equal)?;
-
-		let token1 = self.tokens.next().ok_or(eof())?;
-		let token2 = self.tokens.next().ok_or(eof())?;
-
-		let op;
-		if token1.kind == TokenKind::Operation && token2.kind == TokenKind::Name {
-			let kind = get_op_kind(&token1.value);
-			exp(kind != OperationKind::Unknown, "Unknown operation:", &token1)?;
-			op = Operation {
-				var: Arg {
-					pos: token.pos,
-					name: token.value,
-				},
-				pos: token1.pos,
-				kind,
-				args: vec![Arg {
-					name: token2.value,
-					pos: token2.pos,
-				}],
-			};
-		} else if token1.kind == TokenKind::Name && token2.kind == TokenKind::Operation {
-			let token3 = self.tokens.next().ok_or(eof())?;
-			exp(token3.kind == TokenKind::Name, "Expected name, got:", &token3)?;
-
-			let kind = get_op_kind(&token2.value);
-			exp(kind != OperationKind::Unknown, "Unknown operation:", &token2)?;
-
-			op = Operation {
-				var: Arg {
-					pos: token.pos,
-					name: token.value,
-				},
-				pos: token2.pos,
-				kind,
-				args: vec![
-					Arg {
-						name: token1.value,
-						pos: token1.pos,
-					},
-					Arg {
-						name: token3.value,
-						pos: token3.pos,
-					},
-				],
-			};
-		} else {
-			return Err(exp(false, "Expected operation or a name, got:", &token1).unwrap_err());
-		}
-
-		let eol = self.tokens.next().ok_or(eof())?;
-		exp(eol.kind == TokenKind::Sign && eol.value == ";", "Expected sign ';', got: ", &eol)?;
+		let op = Operation::Logic(LogicOp {
+			var: token,
+			symbol: token1.clone(),
+			pos: token1.pos,
+			args,
+		});
 
 		Ok(op)
 	}
 
-	fn parse_operations(&mut self) -> Result<(Vec<Operation>, Arg), Error> {
+	fn parse_operations(&mut self) -> Result<(Vec<Operation>, Token), Error> {
 		let mut ops = Vec::new();
-		while let Some(token) = self.tokens.peek() {
-			if token.kind == TokenKind::Keyword && token.value == "out" {
-				break;
-			}
-
-			let lett = self.tokens.next().ok_or(eof())?;
-			exp(lett.kind == TokenKind::Keyword && lett.value == "let", "Expected 'let' keyword, got: ", &lett)?;
-
-			let exp = self.parse_operation()?;
+		while let Some(token) = self.tokens.next() {
+			let exp = match (token.kind, token.value.as_str()) {
+				(TokenKind::Keyword, "let") => self.parse_operation()?,
+				(TokenKind::Keyword, "out") => break,
+				_ => return Err(Error::EndOfFile),
+			};
 
 			ops.push(exp);
 		}
-
 		let out = self.parse_out()?;
 
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(token.kind == TokenKind::Sign && token.value == "}", "Expected a sign '}}', got: ", &token)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["}"]))?;
 		Ok((ops, out))
 	}
 
 	fn parse_func(&mut self) -> Result<Def, Error> {
-		let name = self.tokens.next().ok_or(eof())?;
-		exp(name.kind == TokenKind::Name, "Expected name, got: ", &name)?;
-
-		let arg_token = self.tokens.next().ok_or(eof())?;
-		let mut args = Vec::new();
-		if arg_token.kind == TokenKind::Sign && arg_token.value == "(" {
-			args = self.parse_args()?;
-		} else if arg_token.kind == TokenKind::Name {
-			args.push(Arg {
-				name: arg_token.value.clone(),
-				pos: arg_token.pos,
-			});
-		} else {
-			exp(false, "Expected name or a sign '(', got: ", &arg_token)?;
-		}
-
-		let cb_token = self.tokens.next().ok_or(eof())?;
-		exp(
-			cb_token.kind == TokenKind::Sign && cb_token.value == "{",
-			"Expected sign '{{', got: ",
-			&cb_token,
-		)?;
+		let name = self.get_token(TokenKind::Name, None)?;
+		let args = self.parse_args()?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["{"]))?;
 
 		let (ops, out) = self.parse_operations()?;
 
 		Ok(Def::Function(Function {
-			name: name.value,
-			pos: name.pos,
+			iden: name,
 			params: args,
 			out,
 			body: ops,
@@ -309,34 +150,26 @@ impl<'a> ParserIter<'a> {
 	}
 
 	fn parse_assignment(&mut self) -> Result<TestbenchAssignment, Error> {
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(token.kind == TokenKind::Name, "Expected name , got: ", &token)?;
-		let equal = self.tokens.next().ok_or(eof())?;
-		exp(equal.kind == TokenKind::Sign && equal.value == "=", "Expected sign '=', got: ", &equal)?;
-
-		let bool_token = self.tokens.next().ok_or(eof())?;
-		exp(bool_token.kind == TokenKind::Value, "Expected value, got: ", &bool_token)?;
-
-		let eol = self.tokens.next().ok_or(eof())?;
-		exp(eol.kind == TokenKind::Sign && eol.value == ";", "Expected sign ';', got: ", &eol)?;
+		let token = self.get_token(TokenKind::Name, None)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["="]))?;
+		let bool_token = self.get_token(TokenKind::Value, None)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&[";"]))?;
 
 		let bool_value = bool_token.value.parse::<bool>();
-		exp(bool_value.is_ok(), "Failed to parse bool, got: ", &bool_token)?;
-		let bool_value = bool_value.unwrap();
+		let bool_value = match bool_value {
+			Ok(value) => value,
+			Err(_) => Err(Error::UnexpectedToken(bool_token.pos, bool_token.value.len()))?,
+		};
 
 		Ok(TestbenchAssignment {
-			name: token.value,
-			pos: token.pos,
+			iden: token,
 			value: bool_value,
 		})
 	}
 
 	fn parse_breakpoint(&mut self) -> Result<Breakpoint, Error> {
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(token.kind == TokenKind::Sign, "Expected sign, got: ", &token)?;
-
-		let time = self.tokens.next().ok_or(eof())?;
-		exp(time.kind == TokenKind::Value, "Expected value, got: ", &time)?;
+		let token = self.get_token(TokenKind::Sign, Some(&["@"]))?;
+		let time_token = self.get_token(TokenKind::Value, None)?;
 
 		let mut assignments = Vec::new();
 		while let Some(token) = self.tokens.peek() {
@@ -348,16 +181,14 @@ impl<'a> ParserIter<'a> {
 			assignments.push(ass);
 		}
 
-		let kind = get_breakpoint_kind(&token.value);
-		exp(kind != BreakpointKind::Unknown, "Unknown breakpoint kind: ", &token)?;
-		let parsed_time = time.value.parse::<u32>();
-		exp(parsed_time.is_ok(), "Failed to parse integer, got: ", &time)?;
-		let parsed_time = parsed_time.unwrap();
+		let parsed_time = time_token.value.parse::<u32>();
+		let parsed_time = match parsed_time {
+			Ok(val) => val,
+			Err(_) => Err(Error::UnexpectedToken(time_token.pos, time_token.value.len()))?,
+		};
 
 		Ok(Breakpoint {
-			name: token.value,
-			pos: token.pos,
-			kind: kind,
+			symbol: token,
 			time: parsed_time,
 			assignments: assignments,
 		})
@@ -374,39 +205,18 @@ impl<'a> ParserIter<'a> {
 			breakpoints.push(exp);
 		}
 
-		let token = self.tokens.next().ok_or(eof())?;
-		exp(token.kind == TokenKind::Sign && token.value == "}", "Expected a sign '}}', got: ", &token)?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["}"]))?;
 		Ok(breakpoints)
 	}
 
 	fn parse_test(&mut self) -> Result<Def, Error> {
-		let name = self.tokens.next().ok_or(eof())?;
-		exp(name.kind == TokenKind::Name, "Expected name, got: ", &name)?;
-
-		let arg_token = self.tokens.next().ok_or(eof())?;
-		let mut args = Vec::new();
-		if arg_token.kind == TokenKind::Sign && arg_token.value == "(" {
-			args = self.parse_args()?;
-		} else if arg_token.kind == TokenKind::Name {
-			args.push(Arg {
-				name: arg_token.value,
-				pos: arg_token.pos,
-			});
-		} else {
-			exp(false, "Expected name or a sign '(', got: ", &arg_token)?;
-		}
-
-		let breakpoints;
-		let cb_token = self.tokens.next().ok_or(eof())?;
-		if cb_token.kind == TokenKind::Sign && cb_token.value == "{" {
-			breakpoints = self.parse_breakpoints()?;
-		} else {
-			return Err(exp(false, "Expected sign '{{', got: ", &cb_token).unwrap_err());
-		}
+		let name = self.get_token(TokenKind::Name, None)?;
+		let args = self.parse_args()?;
+		let _ = self.get_token(TokenKind::Sign, Some(&["{"]))?;
+		let breakpoints = self.parse_breakpoints()?;
 
 		Ok(Def::Test(Test {
-			name: name.value,
-			pos: name.pos,
+			iden: name,
 			params: args,
 			body: breakpoints,
 		}))
@@ -417,17 +227,16 @@ impl<'a> Iterator for ParserIter<'a> {
 	type Item = Result<Def, Error>;
 
 	fn next(&mut self) -> Option<Result<Def, Error>> {
-		while let Some(token) = self.tokens.next() {
-			if token.kind != TokenKind::Keyword || (token.value != "func" && token.value != "test") {
-				return Some(Err(err(
-					format!("Expected keyword 'func' or 'test', found: '{}'.", token.value),
-					(token.pos, token.value.len()),
-				)));
+		while let Some(_) = self.tokens.peek() {
+			let token = self.get_token(TokenKind::Keyword, Some(&["func", "test"]));
+			if token.is_err() {
+				return Some(Err(token.err().unwrap()));
 			}
-			if token.value == "func" {
-				return Some(self.parse_func());
-			} else {
-				return Some(self.parse_test());
+			let token = token.unwrap();
+			return match (token.kind, token.value.as_str()) {
+				(TokenKind::Keyword, "func") => Some(self.parse_func()),
+				(TokenKind::Keyword, "test") => Some(self.parse_test()),
+				_ => None,
 			};
 		}
 		None

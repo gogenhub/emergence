@@ -1,24 +1,37 @@
 use crate::_utils::{helpers, parser};
-use helpers::{args_from_to, err, exp, Error};
-use parser::{Arg, BreakpointKind, Function, OperationKind, ParserIter, Test};
+use helpers::{args_from_to, get_gate_kind, Error};
+use parser::{Def, Function, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
+pub struct Testbench {
+	pub breakpoints: HashMap<u32, HashMap<String, bool>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum GateKind {
+	Not,
+	Nor,
+}
+
+#[derive(Debug, Clone)]
 pub struct Gate {
-	pub name: String,
+	pub output: String,
 	pub inputs: Vec<String>,
-	pub kind: OperationKind,
+	pub kind: GateKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum Device {
+	Gate(Gate),
 }
 
 #[derive(Debug, Clone)]
 pub struct LogicCircuit {
-	pub inputs: Vec<Arg>,
-	pub output: Arg,
-	pub gates: Vec<Gate>,
-}
-
-pub struct Testbench {
-	pub at_breakpoints: HashMap<u32, HashMap<String, bool>>,
+	pub inputs: Vec<String>,
+	pub output: String,
+	pub devices: Vec<Device>,
+	pub testbench: Testbench,
 }
 
 pub struct LogicCircuitBuilder<'a> {
@@ -39,31 +52,39 @@ impl<'a> LogicCircuitBuilder<'a> {
 	fn check_function_errors(&self, func: &Function) -> Result<(), Error> {
 		let mut pmap = HashSet::new();
 		for param in &func.params {
-			exp(!pmap.contains(&param.name), "Parameter already exists: ", param)?;
-			pmap.insert(param.name.to_owned());
+			Error::already_exists(pmap.contains(&param.value), param)?;
+			pmap.insert(param.value.to_owned());
 		}
-		exp(!pmap.contains(&func.out.name), "Return variable can't be an arg: ", &func.out)?;
 
 		let mut vmap = HashSet::new();
 		let mut vunused = HashMap::new();
 		for op in &func.body {
-			let var = &op.var;
-			exp(!vmap.contains(&var.name) && !pmap.contains(&var.name), "Variable already exists: ", var)?;
-			for arg in &op.args {
-				vunused.remove(&arg.name);
-				exp(vmap.contains(&arg.name) || pmap.contains(&arg.name), "Argument not found: ", arg)?;
+			match op {
+				Operation::Logic(lop) => {
+					let kind = get_gate_kind(&lop.symbol)?;
+					match kind {
+						GateKind::Not => Error::invalid_number_of_args(lop.args.len() != 1, &lop.symbol)?,
+						GateKind::Nor => Error::invalid_number_of_args(lop.args.len() != 2, &lop.symbol)?,
+					};
+					Error::already_exists(vmap.contains(&lop.var.value) || pmap.contains(&lop.var.value), &lop.var)?;
+					for arg in &lop.args {
+						vunused.remove(&arg.value);
+						Error::not_found(!vmap.contains(&arg.value) && !pmap.contains(&arg.value), &arg)?;
+					}
+
+					vmap.insert(lop.var.value.to_owned());
+					vunused.insert(lop.var.value.to_owned(), lop.var.clone());
+				}
 			}
-
-			vmap.insert(var.name.to_owned());
-			vunused.insert(var.name.to_owned(), var);
 		}
-		vunused.remove(&func.out.name);
 
+		Error::not_found(!vmap.contains(&func.out.value), &func.out)?;
+		vunused.remove(&func.out.value);
+
+		// TODO: add warning instead of error
 		for (_, var) in vunused {
-			exp(false, "Variable not used: ", var)?;
+			Error::not_used(true, &var)?;
 		}
-
-		exp(vmap.contains(&func.out.name), "Variable not found: ", &func.out)?;
 
 		Ok(())
 	}
@@ -72,19 +93,19 @@ impl<'a> LogicCircuitBuilder<'a> {
 		let mut at_set = HashSet::new();
 		let mut pmap = HashMap::new();
 		for param in &test.params {
-			exp(!pmap.contains_key(&param.name), "Parameter with name already exists: ", param)?;
-			pmap.insert(param.name.to_owned(), param);
+			Error::already_exists(pmap.contains_key(&param.value), &param)?;
+			pmap.insert(param.value.to_owned(), param);
 		}
 
 		for bp in &test.body {
-			exp(!at_set.contains(&bp.time), "Breakpoint already exists: ", bp)?;
+			Error::already_exists(at_set.contains(&bp.time), &bp.symbol)?;
 			at_set.insert(bp.time);
 
 			let mut assm = HashSet::new();
 			for ass in &bp.assignments {
-				exp(!assm.contains(&ass.name), "Assignment already exists: ", ass)?;
-				exp(pmap.contains_key(&ass.name), "Parameter not found: ", ass)?;
-				assm.insert(ass.name.to_owned());
+				Error::already_exists(assm.contains(&ass.iden.value), &ass.iden)?;
+				Error::not_found(!pmap.contains_key(&ass.iden.value), &ass.iden)?;
+				assm.insert(ass.iden.value.to_owned());
 			}
 		}
 		Ok(())
@@ -93,64 +114,50 @@ impl<'a> LogicCircuitBuilder<'a> {
 	pub fn build_parse_tree(&mut self) -> Result<(), Error> {
 		while let Some(res) = self.parse_iter.next() {
 			let res = res?;
-			if res.is_func() {
-				let func = res.func();
-				exp(!self.function_tree.contains_key(&func.name), "Function already exists: ", &func)?;
-				self.check_function_errors(&func)?;
-				self.function_tree.insert(func.name.to_owned(), func);
-			} else {
-				let test = res.test();
-				exp(self.function_tree.contains_key(&test.name), "Function not found: ", &test)?;
-				exp(!self.test_tree.contains_key(&test.name), "Test already exists: ", &test)?;
-				self.check_test_errors(&test)?;
-				self.test_tree.insert(test.name.to_owned(), test);
+			match res {
+				Def::Function(func) => {
+					Error::already_exists(self.function_tree.contains_key(&func.iden.value), &func.iden)?;
+					self.check_function_errors(&func)?;
+					self.function_tree.insert(func.iden.value.to_owned(), func);
+				}
+				Def::Test(test) => {
+					Error::not_found(!self.function_tree.contains_key(&test.iden.value), &test.iden)?;
+					Error::already_exists(self.test_tree.contains_key(&test.iden.value), &test.iden)?;
+					self.check_test_errors(&test)?;
+					self.test_tree.insert(test.iden.value.to_owned(), test);
+				}
 			}
-		}
-
-		if self.function_tree.len() > 1 || !self.function_tree.contains_key("main") {
-			return Err(err("Only 'main' function allowed.".to_owned(), (0, 0)));
 		}
 
 		Ok(())
 	}
 
-	fn build_gates(&self, func: &Function, pmap: &HashMap<String, String>) -> Vec<Gate> {
-		let mut gates = Vec::new();
+	fn build_devices(&self, func: &Function, pmap: &HashMap<String, String>) -> Vec<Device> {
+		let mut devices = Vec::new();
 		for op in &func.body {
-			let inputs: Vec<String> = op
-				.args
-				.iter()
-				.map(|v| {
-					if pmap.contains_key(&v.name) {
-						return pmap[&v.name].to_owned();
-					}
-					v.name.to_owned()
-				})
-				.collect();
-			gates.push(Gate {
-				name: op.var.name.to_owned(),
-				kind: op.kind.clone(),
-				inputs,
-			});
+			match op {
+				Operation::Logic(gop) => {
+					let inputs: Vec<String> = gop
+						.args
+						.iter()
+						.map(|v| {
+							if pmap.contains_key(&v.value) {
+								return pmap[&v.value].to_owned();
+							}
+							v.value.to_owned()
+						})
+						.collect();
+					let kind = get_gate_kind(&gop.symbol).unwrap();
+					devices.push(Device::Gate(Gate {
+						output: gop.var.value.to_owned(),
+						kind,
+						inputs,
+					}));
+				}
+			}
 		}
 
-		gates
-	}
-
-	pub fn build_logic_circut(&mut self) -> LogicCircuit {
-		let main_func = self.function_tree.get("main").unwrap();
-		let main_test = self.test_tree.get("main").unwrap();
-		let pmap = args_from_to(&main_func.params, &main_test.params);
-		let gates = self.build_gates(main_func, &pmap);
-
-		let ins = main_test.params.clone();
-		let out = main_func.out.clone();
-		let lc = LogicCircuit {
-			gates: gates,
-			inputs: ins,
-			output: out,
-		};
-		lc
+		devices
 	}
 
 	pub fn build_testbench(&mut self) -> Testbench {
@@ -159,13 +166,28 @@ impl<'a> LogicCircuitBuilder<'a> {
 		for bp in &main_test.body {
 			let mut assigns = HashMap::new();
 			for ass in &bp.assignments {
-				assigns.insert(ass.name.to_owned(), ass.value);
+				assigns.insert(ass.iden.value.to_owned(), ass.value);
 			}
-			if bp.kind == BreakpointKind::At {
-				at_bp.insert(bp.time, assigns);
-			}
+			at_bp.insert(bp.time, assigns);
 		}
 
-		Testbench { at_breakpoints: at_bp }
+		Testbench { breakpoints: at_bp }
+	}
+
+	pub fn build_logic_circut(&mut self) -> LogicCircuit {
+		let main_func = self.function_tree.get("main").unwrap();
+		let main_test = self.test_tree.get("main").unwrap();
+		let pmap = args_from_to(&main_func.params, &main_test.params);
+		let devices = self.build_devices(main_func, &pmap);
+
+		let inputs = main_test.params.iter().map(|x| x.value.to_string()).collect();
+		let output = main_func.out.value.to_string();
+		let testbench = self.build_testbench();
+		LogicCircuit {
+			devices,
+			inputs,
+			output,
+			testbench,
+		}
 	}
 }

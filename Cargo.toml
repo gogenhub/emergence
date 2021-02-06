@@ -15,6 +15,7 @@ base64 = "0.10"
 chrono = "0.4"
 colors-transform = "0.2.11"
 rand = "0.7.3"
+thiserror = "1.0.23"
 
 [[bin]]
 name = "compile"
