@@ -1,10 +1,23 @@
-use crate::_utils::{builder, data, helpers};
-use builder::{Device, GateKind, LogicCircuit};
+use crate::_utils::{builder, data, devices, helpers};
+use builder::LogicCircuit;
 use data::get_data;
-use helpers::{inv_out_error, lrate, out_error, transfer, Error};
+use devices::Device;
+use helpers::Error;
 use rand::distributions::{Distribution, Uniform};
 use rand::prelude::ThreadRng;
 use std::collections::{HashMap, HashSet};
+
+pub fn out_error(x: f64) -> f64 {
+	1.0 - (-x / 200.0).exp()
+}
+
+pub fn inv_out_error(x: f64) -> f64 {
+	(-x / 10.0).exp()
+}
+
+pub fn lrate(i: f64, len: f64) -> f64 {
+	(-i / len).exp()
+}
 
 pub struct Layer {
 	nodes: Vec<f64>,
@@ -15,9 +28,8 @@ pub struct Layer {
 
 impl Layer {
 	pub fn init(device: Device) -> Self {
-		let data = get_data();
-		let len = match device {
-			Device::Gate(_) => data.genes_len(),
+		let len = match &device {
+			Device::Gate(gate) => gate.num_components(),
 		};
 		let mut rng = rand::thread_rng();
 		let uni = Uniform::new_inclusive(0.0f64, 1.0);
@@ -45,26 +57,15 @@ impl Layer {
 	}
 
 	pub fn insert_bl(&self, i: usize, bl: &mut HashSet<String>) {
-		let data = get_data();
-		match self.device {
-			Device::Gate(_) => {
-				let gene = data.get_gene_at(i);
-				bl.insert(gene.group());
-			}
+		match &self.device {
+			Device::Gate(gate) => gate.blacklist(i, bl),
 		}
 	}
 
 	pub fn in_bl(&self, i: usize, bl: &HashSet<String>) -> bool {
-		let data = get_data();
-		match self.device {
-			Device::Gate(_) => {
-				let gene = data.get_gene_at(i);
-				if bl.contains(&gene.group()) {
-					return true;
-				}
-			}
+		match &self.device {
+			Device::Gate(gate) => gate.is_blacklisted(i, &bl),
 		}
-		false
 	}
 
 	pub fn get_node_from_prob(&self, ch: f64, bl: &HashSet<String>) -> usize {
@@ -157,22 +158,7 @@ impl GeneNetwork {
 		for (i, selected) in selected_gates.iter().rev().enumerate() {
 			let device = self.lc.devices.get(i).unwrap();
 			match device {
-				Device::Gate(gate) => {
-					let (off, on, diff) = if gate.kind == GateKind::Not {
-						let (coff, con, cdiff) = cached[&gate.inputs[0]];
-						(coff, con, cdiff)
-					} else {
-						let (coff0, con0, diff0) = cached[&gate.inputs[0]];
-						let (coff1, con1, diff1) = cached[&gate.inputs[1]];
-						let diff = (con0 - con1).abs() + (coff0 - coff1).abs() + diff0 + diff1;
-						(coff0 + coff1, con0.min(con1), diff)
-					};
-
-					let gene = data.get_gene_at(*selected);
-					let new_off = transfer(on, &gene.params) / gene.params.decay;
-					let new_on = transfer(off, &gene.params) / gene.params.decay;
-					cached.insert(gate.output.to_owned(), (new_off, new_on, diff));
-				}
+				Device::Gate(gate) => gate.test_steady_state(*selected, &mut cached),
 			}
 		}
 

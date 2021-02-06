@@ -84,17 +84,32 @@ impl Gene {
 		self.transfer(sum) - self.params.decay * self.state
 	}
 
-	pub fn steady_state(&self, steady_states: HashMap<String, (f64, f64)>) -> (f64, f64) {
+	pub fn model_and_save(&self, states: &mut HashMap<String, f64>, history: &mut HashMap<String, Vec<f64>>) {
+		let sum: f64 = self.inputs.iter().map(|pro| states.get(pro).unwrap()).sum();
+		let state = states.get(&self.promoter).unwrap();
+		let flux = self.model(sum);
+		let new_state = state + flux;
+		states.insert(self.promoter.to_owned(), new_state);
+		let hist = history.get_mut(&self.promoter).unwrap();
+		hist.push(new_state);
+	}
+
+	pub fn steady_state(&self, on: f64, off: f64) -> (f64, f64) {
+		let steady_off = self.transfer(on) / self.params.decay;
+		let steady_on = self.transfer(off) / self.params.decay;
+		(steady_off, steady_on)
+	}
+
+	pub fn simulation_steady_state(&self, cached: &mut HashMap<String, (f64, f64)>) {
 		let (mut sum_off, mut sum_on) = (0.0, 0.0);
 		for inp in &self.inputs {
-			let (off, on) = steady_states.get(inp).unwrap();
+			let (off, on) = cached.get(inp).unwrap();
 			sum_on += on;
 			sum_off += off;
 		}
 
-		let steady_off = self.transfer(sum_on) / self.params.decay;
-		let steady_on = self.transfer(sum_off) / self.params.decay;
-		(steady_off, steady_on)
+		let (off, on) = self.steady_state(sum_on, sum_off);
+		cached.insert(self.promoter.to_owned(), (off, on));
 	}
 }
 

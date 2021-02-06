@@ -1,7 +1,7 @@
-use crate::_utils::{builder, data, lexer};
-use builder::GateKind;
+use crate::_utils::{data, devices, lexer};
 use chrono::Utc;
-use data::{Params, PartKind};
+use data::PartKind;
+use devices::GateKind;
 use lexer::Token;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -71,22 +71,6 @@ where
 	A: Add<Output = A> + Mul<Output = A> + Sub<Output = A> + Div<Output = A> + Copy,
 {
 	(num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-}
-
-pub fn transfer(x: f64, params: &Params) -> f64 {
-	params.ymin + (params.ymax - params.ymin) / (1.0 + (x / params.k).powf(params.n))
-}
-
-pub fn out_error(x: f64) -> f64 {
-	1.0 - (-x / 200.0).exp()
-}
-
-pub fn inv_out_error(x: f64) -> f64 {
-	(-x / 10.0).exp()
-}
-
-pub fn lrate(i: f64, len: f64) -> f64 {
-	(-i / len).exp()
 }
 
 pub fn make_plasmid_dna(seq: &str) -> String {

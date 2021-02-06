@@ -1,8 +1,8 @@
-use crate::_utils::{builder, data, helpers};
-use builder::{Device, LogicCircuit};
-use colors_transform::{Color, Hsl};
+use crate::_utils::{builder, data, devices, helpers};
+use builder::LogicCircuit;
 use data::{get_data, Gene, Input};
-use helpers::{make_plasmid_dna, make_plasmid_part, make_plasmid_title, map};
+use devices::Device;
+use helpers::{make_plasmid_dna, make_plasmid_part, make_plasmid_title};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -30,25 +30,10 @@ impl Assembler {
 		let mut genes = Vec::new();
 		let mut cached: HashMap<String, Gene> = HashMap::new();
 		for (i, selected) in self.selected_genes.iter().rev().enumerate() {
-			let mut gene = data.get_gene_at(*selected).clone();
 			let device = lc.devices.get(i).unwrap();
 			match device {
 				Device::Gate(gate) => {
-					let mut inputs = Vec::new();
-					for inp in &gate.inputs {
-						let input = if data.has_input(&inp) {
-							data.get_input(&inp).promoter.to_owned()
-						} else {
-							cached.get(inp).unwrap().promoter.to_owned()
-						};
-						inputs.push(input);
-					}
-					gene.inputs = inputs;
-					cached.insert(gate.output.to_owned(), gene.clone());
-
-					let val = map(i, 0, self.selected_genes.len(), 0, 355);
-					let color_hex = Hsl::from(val as f32, 100.0, 50.0).to_rgb().to_css_hex_string();
-					gene.color = color_hex;
+					let gene = gate.into_biological(*selected, &mut cached);
 					genes.push(gene);
 				}
 			}

@@ -1,4 +1,5 @@
-use crate::_utils::{helpers, parser};
+use crate::_utils::{devices, helpers, parser};
+use devices::{Device, Gate, GateKind};
 use helpers::{args_from_to, get_gate_kind, Error};
 use parser::{Def, Function, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
@@ -6,24 +7,6 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Clone)]
 pub struct Testbench {
 	pub breakpoints: HashMap<u32, HashMap<String, bool>>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum GateKind {
-	Not,
-	Nor,
-}
-
-#[derive(Debug, Clone)]
-pub struct Gate {
-	pub output: String,
-	pub inputs: Vec<String>,
-	pub kind: GateKind,
-}
-
-#[derive(Debug, Clone)]
-pub enum Device {
-	Gate(Gate),
 }
 
 #[derive(Debug, Clone)]

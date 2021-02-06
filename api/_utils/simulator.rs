@@ -1,8 +1,7 @@
-use crate::_utils::{assembler, builder, data, helpers};
+use crate::_utils::{assembler, builder, data};
 use assembler::GeneticCircuit;
 use builder::Testbench;
 use data::get_data;
-use helpers::transfer;
 use std::collections::HashMap;
 
 pub fn simulate(
@@ -21,18 +20,7 @@ pub fn simulate(
 	for gene in &gc.genes {
 		states.insert(gene.promoter.to_owned(), 0.0);
 		history.insert(gene.promoter.to_owned(), Vec::new());
-
-		let (mut sum_off, mut sum_on) = (0.0, 0.0);
-		for inp in &gene.inputs {
-			let (off, on) = steady_states.get(inp).unwrap();
-			sum_on += on;
-			sum_off += off;
-		}
-
-		let steady_off = transfer(sum_on, &gene.params) / gene.params.decay;
-		let steady_on = transfer(sum_off, &gene.params) / gene.params.decay;
-
-		steady_states.insert(gene.promoter.to_owned(), (steady_off, steady_on));
+		gene.simulation_steady_state(&mut steady_states);
 	}
 	for i in 0..1000 {
 		if testbench.breakpoints.contains_key(&i) {
@@ -53,14 +41,7 @@ pub fn simulate(
 		}
 
 		for gene in &gc.genes {
-			let state = states.get(&gene.promoter).unwrap();
-			let sum: f64 = gene.inputs.iter().map(|pro| states.get(pro).unwrap()).sum();
-
-			let flux = transfer(sum, &gene.params) - gene.params.decay * state;
-			let new_state = state + flux;
-			states.insert(gene.promoter.to_owned(), new_state);
-			let hist = history.get_mut(&gene.promoter).unwrap();
-			hist.push(new_state);
+			gene.model_and_save(&mut states, &mut history);
 		}
 	}
 	(history, steady_states)
