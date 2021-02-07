@@ -1,9 +1,9 @@
-use crate::_utils::helpers::Loggable;
 use regex::Regex;
+use std::fmt::{Display, Formatter, Result};
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TokenKind {
 	Sign,
 	Operation,
@@ -13,19 +13,17 @@ pub enum TokenKind {
 	Unknown,
 }
 
+impl Display for TokenKind {
+	fn fmt(&self, f: &mut Formatter) -> Result {
+		write!(f, "{:?}", self)
+	}
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
 	pub kind: TokenKind,
 	pub value: String,
 	pub pos: usize,
-}
-
-impl Loggable for Token {
-	fn value(&self) -> &str {
-		&self.value
-	}
-	fn pos(&self) -> usize {
-		self.pos
-	}
 }
 
 pub struct LexerIter<'a> {
@@ -84,7 +82,7 @@ impl<'a> Iterator for LexerIter<'a> {
 					value: group.to_owned(),
 					pos,
 				}),
-				"~" | "~|" | "~&" | "~^" | "|" | "&" | "^" => Some(Token {
+				"not" | "nor" => Some(Token {
 					kind: TokenKind::Operation,
 					value: group.to_owned(),
 					pos,
