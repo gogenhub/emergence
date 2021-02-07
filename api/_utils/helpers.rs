@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Serialize, Debug)]
+#[serde(tag = "kind", content = "pos")]
 pub enum Error {
 	UnexpectedToken(usize, usize),
 	AlreadyExists(usize, usize),
