@@ -63,8 +63,6 @@ pub struct Gene {
 	#[serde(default)]
 	pub inputs: Vec<String>,
 	pub params: Params,
-	#[serde(default)]
-	pub state: f64,
 }
 
 impl Gene {
@@ -80,14 +78,14 @@ impl Gene {
 		self.params.ymin + (self.params.ymax - self.params.ymin) / (1.0 + (x / self.params.k).powf(self.params.n))
 	}
 
-	pub fn model(&self, sum: f64) -> f64 {
-		self.transfer(sum) - self.params.decay * self.state
+	pub fn model(&self, sum: f64, state: f64) -> f64 {
+		self.transfer(sum) - self.params.decay * state
 	}
 
 	pub fn model_and_save(&self, states: &mut HashMap<String, f64>, history: &mut HashMap<String, Vec<f64>>) {
 		let sum: f64 = self.inputs.iter().map(|pro| states.get(pro).unwrap()).sum();
 		let state = states.get(&self.promoter).unwrap();
-		let flux = self.model(sum);
+		let flux = self.model(sum, *state);
 		let new_state = state + flux;
 		states.insert(self.promoter.to_owned(), new_state);
 		let hist = history.get_mut(&self.promoter).unwrap();
