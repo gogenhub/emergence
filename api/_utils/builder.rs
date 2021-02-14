@@ -1,21 +1,9 @@
-use crate::_utils::{devices, helpers, parser};
+use crate::_utils::{devices, helpers, logic_circuit, parser};
 use devices::{Device, Gate, GateKind};
 use helpers::{args_from_to, get_gate_kind, Error};
+use logic_circuit::{LogicCircuit, Testbench};
 use parser::{Def, Function, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
-
-#[derive(Debug, Clone)]
-pub struct Testbench {
-	pub breakpoints: HashMap<u32, HashMap<String, bool>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct LogicCircuit {
-	pub inputs: Vec<String>,
-	pub output: String,
-	pub devices: Vec<Device>,
-	pub testbench: Testbench,
-}
 
 pub struct LogicCircuitBuilder<'a> {
 	parse_iter: ParserIter<'a>,

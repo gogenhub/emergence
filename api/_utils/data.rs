@@ -54,60 +54,20 @@ pub struct Params {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct Gene {
+pub struct GeneData {
 	pub name: String,
 	pub parts: Vec<String>,
 	pub promoter: String,
-	#[serde(default)]
-	pub color: String,
-	#[serde(default)]
-	pub inputs: Vec<String>,
 	pub params: Params,
 }
 
-impl Gene {
+impl GeneData {
 	pub fn group(&self) -> String {
 		let group: Vec<&str> = self.name.split("_").collect();
 		if group.len() < 2 {
 			return "none".to_owned();
 		}
 		group[1].to_owned()
-	}
-
-	pub fn transfer(&self, x: f64) -> f64 {
-		self.params.ymin + (self.params.ymax - self.params.ymin) / (1.0 + (x / self.params.k).powf(self.params.n))
-	}
-
-	pub fn model(&self, sum: f64, state: f64) -> f64 {
-		self.transfer(sum) - self.params.decay * state
-	}
-
-	pub fn model_and_save(&self, states: &mut HashMap<String, f64>, history: &mut HashMap<String, Vec<f64>>) {
-		let sum: f64 = self.inputs.iter().map(|pro| states.get(pro).unwrap()).sum();
-		let state = states.get(&self.promoter).unwrap();
-		let flux = self.model(sum, *state);
-		let new_state = state + flux;
-		states.insert(self.promoter.to_owned(), new_state);
-		let hist = history.get_mut(&self.promoter).unwrap();
-		hist.push(new_state);
-	}
-
-	pub fn steady_state(&self, on: f64, off: f64) -> (f64, f64) {
-		let steady_off = self.transfer(on) / self.params.decay;
-		let steady_on = self.transfer(off) / self.params.decay;
-		(steady_off, steady_on)
-	}
-
-	pub fn simulation_steady_state(&self, cached: &mut HashMap<String, (f64, f64)>) {
-		let (mut sum_off, mut sum_on) = (0.0, 0.0);
-		for inp in &self.inputs {
-			let (off, on) = cached.get(inp).unwrap();
-			sum_on += on;
-			sum_off += off;
-		}
-
-		let (off, on) = self.steady_state(sum_on, sum_off);
-		cached.insert(self.promoter.to_owned(), (off, on));
 	}
 }
 
@@ -118,8 +78,8 @@ pub struct Rules {
 }
 
 pub struct Data {
-	pub genes: HashMap<String, Gene>,
-	pub genes_vec: Vec<Gene>,
+	pub genes: HashMap<String, GeneData>,
+	pub genes_vec: Vec<GeneData>,
 	pub parts: HashMap<String, Part>,
 	pub inputs: HashMap<String, Input>,
 	pub outputs: HashMap<String, String>,
@@ -159,7 +119,7 @@ impl Data {
 		let rules_f = read_to_string(rules_path).unwrap();
 		let roadblock_f = read_to_string(roadblock_path).unwrap();
 
-		let genes: HashMap<String, Gene> = from_str(&gates_f).unwrap();
+		let genes: HashMap<String, GeneData> = from_str(&gates_f).unwrap();
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
 		let outputs: HashMap<String, String> = from_str(&outputs_f).unwrap();
@@ -194,11 +154,11 @@ impl Data {
 		self.parts.get(name).unwrap()
 	}
 
-	pub fn get_gene(&self, name: &str) -> &Gene {
+	pub fn get_gene(&self, name: &str) -> &GeneData {
 		self.genes.get(name).unwrap()
 	}
 
-	pub fn get_gene_at(&self, i: usize) -> &Gene {
+	pub fn get_gene_at(&self, i: usize) -> &GeneData {
 		self.genes_vec.get(i).unwrap()
 	}
 

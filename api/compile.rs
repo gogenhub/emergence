@@ -7,14 +7,12 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{assembler, assigner, builder, helpers, lexer, parser, simulator};
-use assembler::{Assembler, GeneticCircuit};
-use assigner::GeneNetwork;
+use _utils::{builder, genetic_circuit, helpers, lexer, parser};
+use genetic_circuit::GeneticCircuit;
 use helpers::Error;
 use lambda_runtime::{error::HandlerError, start, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use simulator::simulate;
 use std::{collections::HashMap, error::Error as StdError, str};
 
 #[derive(Serialize, Debug)]
@@ -22,6 +20,8 @@ struct CompileResult {
 	gc: GeneticCircuit,
 	simulation: HashMap<String, Vec<f64>>,
 	steady_states: HashMap<String, (f64, f64)>,
+	dna: String,
+	plasmid: String,
 }
 
 #[derive(Deserialize)]
@@ -67,17 +67,15 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	let mut bld = builder::LogicCircuitBuilder::new(prs);
 	bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut();
-	let tb = bld.build_testbench();
-	let mut assn = GeneNetwork::init(lc.clone())?;
-	let (selected_gates, score) = assn.fit()?;
-	let assm = Assembler::new(selected_gates, score);
-	let mut gc = assm.assemble(&lc);
-	let (simulation, steady_states) = simulate(&tb, &gc);
-	assm.apply_rules(&mut gc);
+	let gc = lc.fit_into_biological()?;
+	let (simulation, steady_states) = gc.simulate(lc.testbench);
+	let (dna, plasmid) = gc.into_dna();
 	Ok(CompileResult {
 		gc,
 		simulation,
 		steady_states,
+		dna,
+		plasmid,
 	})
 }
 
