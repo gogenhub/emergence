@@ -1,7 +1,6 @@
-use crate::_utils::{data, devices, helpers, logic_circuit};
+use crate::_utils::{data, error, logic_circuit};
 use data::get_data;
-use devices::Device;
-use helpers::Error;
+use error::Error;
 use logic_circuit::LogicCircuit;
 use rand::distributions::{Distribution, Uniform};
 use rand::prelude::ThreadRng;
@@ -11,23 +10,14 @@ pub struct Layer {
 	nodes: Vec<f64>,
 	rng: ThreadRng,
 	uni: Uniform<f64>,
-	device: Device,
 }
 
 impl Layer {
-	pub fn init(device: Device) -> Self {
-		let len = match &device {
-			Device::Gate(gate) => gate.num_components(),
-		};
+	pub fn init(len: usize) -> Self {
 		let mut rng = rand::thread_rng();
 		let uni = Uniform::new_inclusive(0.0f64, 1.0);
 		let nodes = vec![uni.sample(&mut rng); len];
-		Self {
-			nodes,
-			rng,
-			uni,
-			device,
-		}
+		Self { nodes, rng, uni }
 	}
 
 	pub fn choose_node(&mut self, bl: &mut HashSet<String>) -> usize {
@@ -45,15 +35,15 @@ impl Layer {
 	}
 
 	pub fn insert_bl(&self, i: usize, bl: &mut HashSet<String>) {
-		match &self.device {
-			Device::Gate(gate) => gate.blacklist(i, bl),
-		}
+		let data = get_data();
+		let gene = data.get_gene_at(i);
+		gene.blacklist(bl);
 	}
 
 	pub fn in_bl(&self, i: usize, bl: &HashSet<String>) -> bool {
-		match &self.device {
-			Device::Gate(gate) => gate.is_blacklisted(i, &bl),
-		}
+		let data = get_data();
+		let gene = data.get_gene_at(i);
+		gene.is_blacklisted(&bl)
 	}
 
 	pub fn get_node_from_prob(&self, ch: f64, bl: &HashSet<String>) -> usize {
@@ -89,10 +79,6 @@ impl GeneNetwork {
 		1.0 - (-x / 200.0).exp()
 	}
 
-	pub fn inv_out_error(x: f64) -> f64 {
-		(-x / 10.0).exp()
-	}
-
 	pub fn lrate(&self, i: f64) -> f64 {
 		let len = self.num_iterations as f64;
 		(-i / len).exp()
@@ -110,7 +96,7 @@ impl GeneNetwork {
 		}
 		let mut layers = Vec::new();
 		for device in lc.devices.iter().rev() {
-			let layer = Layer::init(device.clone());
+			let layer = Layer::init(device.num_biological());
 			layers.push(layer);
 		}
 		Ok(Self {
@@ -126,15 +112,13 @@ impl GeneNetwork {
 		for i in 0..self.num_iterations {
 			let lr = self.lrate(i as f64);
 			let sel_genes = self.walk();
-			let (_, _, diff, score) = self.lc.into_biological(&sel_genes).test();
+			let diff_score = self.lc.into_biological(&sel_genes).test();
 
-			let diff_err = Self::inv_out_error(diff);
-			let diff_core = diff_err * score;
-			if diff_core > best_score {
-				best_score = diff_core;
+			if diff_score > best_score {
+				best_score = diff_score;
 				best_sel = sel_genes.clone();
 			}
-			let out = Self::out_error(diff_core);
+			let out = Self::out_error(diff_score);
 			self.update_weights(lr, out, sel_genes);
 		}
 		Ok(best_sel)

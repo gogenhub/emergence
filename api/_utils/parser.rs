@@ -1,5 +1,5 @@
-use crate::_utils::{helpers, lexer};
-use helpers::Error;
+use crate::_utils::{error, lexer};
+use error::Error;
 use lexer::{LexerIter, Token, TokenKind};
 use std::iter::Peekable;
 

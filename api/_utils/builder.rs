@@ -1,6 +1,7 @@
-use crate::_utils::{devices, helpers, logic_circuit, parser};
-use devices::{Device, Gate, GateKind};
-use helpers::{args_from_to, get_gate_kind, Error};
+use crate::_utils::{error, lexer, logic_circuit, parser};
+use error::Error;
+use lexer::Token;
+use logic_circuit::{Device, Gate, GateKind};
 use logic_circuit::{LogicCircuit, Testbench};
 use parser::{Def, Function, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
@@ -20,6 +21,24 @@ impl<'a> LogicCircuitBuilder<'a> {
 		}
 	}
 
+	pub fn args_from_to(from: &Vec<Token>, to: &Vec<Token>) -> HashMap<String, String> {
+		let map: HashMap<String, String> = from
+			.iter()
+			.zip(to.iter())
+			.map(|(x, y)| (x.value.to_owned(), y.value.to_owned()))
+			.collect();
+
+		map
+	}
+
+	pub fn get_gate_kind(token: &Token) -> Result<GateKind, Error> {
+		match token.value.as_str() {
+			"not" => Ok(GateKind::Not),
+			"nor" => Ok(GateKind::Nor),
+			_ => Err(Error::UnexpectedToken(token.pos, token.value.len())),
+		}
+	}
+
 	fn check_function_errors(&self, func: &Function) -> Result<(), Error> {
 		let mut pmap = HashSet::new();
 		for param in &func.params {
@@ -32,7 +51,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 		for op in &func.body {
 			match op {
 				Operation::Logic(lop) => {
-					let kind = get_gate_kind(&lop.symbol)?;
+					let kind = Self::get_gate_kind(&lop.symbol)?;
 					match kind {
 						GateKind::Not => Error::invalid_number_of_args(lop.args.len() != 1, &lop.symbol)?,
 						GateKind::Nor => Error::invalid_number_of_args(lop.args.len() != 2, &lop.symbol)?,
@@ -118,7 +137,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 							v.value.to_owned()
 						})
 						.collect();
-					let kind = get_gate_kind(&gop.symbol).unwrap();
+					let kind = Self::get_gate_kind(&gop.symbol).unwrap();
 					devices.push(Device::Gate(Gate {
 						output: gop.var.value.to_owned(),
 						kind,
@@ -148,7 +167,7 @@ impl<'a> LogicCircuitBuilder<'a> {
 	pub fn build_logic_circut(&mut self) -> LogicCircuit {
 		let main_func = self.function_tree.get("main").unwrap();
 		let main_test = self.test_tree.get("main").unwrap();
-		let pmap = args_from_to(&main_func.params, &main_test.params);
+		let pmap = Self::args_from_to(&main_func.params, &main_test.params);
 		let devices = self.build_devices(main_func, &pmap);
 
 		let inputs = main_test.params.iter().map(|x| x.value.to_string()).collect();

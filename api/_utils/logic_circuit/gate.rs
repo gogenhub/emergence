@@ -1,9 +1,12 @@
-use crate::_utils::{components, data, helpers};
+use crate::_utils::{data, genetic_circuit};
 use colors_transform::{Color, Hsl};
-use components::Gene;
 use data::get_data;
-use helpers::map;
-use std::collections::{HashMap, HashSet};
+use genetic_circuit::{Component, Gene};
+use std::collections::HashMap;
+
+pub fn map(num: u32, in_min: u32, in_max: u32, out_min: u32, out_max: u32) -> u32 {
+	(num - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GateKind {
@@ -19,24 +22,12 @@ pub struct Gate {
 }
 
 impl Gate {
-	pub fn num_components(&self) -> usize {
+	pub fn num_biological(&self) -> usize {
 		let data = get_data();
 		data.genes_len()
 	}
 
-	pub fn blacklist(&self, i: usize, bl: &mut HashSet<String>) {
-		let data = get_data();
-		let gene = data.get_gene_at(i);
-		bl.insert(gene.group());
-	}
-
-	pub fn is_blacklisted(&self, i: usize, bl: &HashSet<String>) -> bool {
-		let data = get_data();
-		let gene = data.get_gene_at(i);
-		bl.contains(&gene.group())
-	}
-
-	pub fn into_biological(&self, i: usize, cached: &mut HashMap<String, Gene>) -> Gene {
+	pub fn into_biological(&self, i: usize, cached: &mut HashMap<String, Component>) -> Vec<Component> {
 		let data = get_data();
 		let gene_data = data.get_gene_at(i).clone();
 
@@ -50,10 +41,10 @@ impl Gate {
 			inputs.push(input);
 		}
 
-		let val = map(i, 0, data.genes_len(), 0, 355);
+		let val = map(i as u32, 0, data.genes_len() as u32, 0, 355);
 		let color_hex = Hsl::from(val as f32, 100.0, 50.0).to_rgb().to_css_hex_string();
-		let gene = Gene::new(gene_data, inputs, color_hex);
+		let gene = Component::Gene(Gene::new(gene_data, inputs, color_hex));
 		cached.insert(self.output.to_owned(), gene.clone());
-		gene
+		vec![gene]
 	}
 }

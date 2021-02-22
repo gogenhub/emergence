@@ -1,10 +1,8 @@
 pub mod assigner;
 pub mod builder;
-pub mod components;
 pub mod data;
-pub mod devices;
+pub mod error;
 pub mod genetic_circuit;
-pub mod helpers;
 pub mod lexer;
 pub mod logic_circuit;
 pub mod parser;

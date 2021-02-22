@@ -43,6 +43,36 @@ pub struct Input {
 	pub rpu_on: f64,
 }
 
+impl Input {
+	pub fn name(&self) -> String {
+		self.name.to_owned()
+	}
+
+	pub fn promoter(&self) -> String {
+		self.promoter.to_owned()
+	}
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Output {
+	pub name: String,
+	pub promoter: String,
+}
+
+impl Output {
+	pub fn new(name: String, promoter: String) -> Self {
+		Self { name, promoter }
+	}
+
+	pub fn name(&self) -> String {
+		self.name.to_owned()
+	}
+
+	pub fn promoter(&self) -> String {
+		self.promoter.to_owned()
+	}
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Params {
 	pub ymax: f64,
@@ -69,6 +99,14 @@ impl GeneData {
 		}
 		group[1].to_owned()
 	}
+
+	pub fn blacklist(&self, bl: &mut HashSet<String>) {
+		bl.insert(self.group());
+	}
+
+	pub fn is_blacklisted(&self, bl: &HashSet<String>) -> bool {
+		bl.contains(&self.group())
+	}
 }
 
 #[derive(Deserialize)]
@@ -78,8 +116,7 @@ pub struct Rules {
 }
 
 pub struct Data {
-	pub genes: HashMap<String, GeneData>,
-	pub genes_vec: Vec<GeneData>,
+	pub genes: Vec<GeneData>,
 	pub parts: HashMap<String, Part>,
 	pub inputs: HashMap<String, Input>,
 	pub outputs: HashMap<String, String>,
@@ -90,8 +127,7 @@ pub struct Data {
 impl Data {
 	pub fn new() -> Self {
 		Self {
-			genes: HashMap::new(),
-			genes_vec: Vec::new(),
+			genes: Vec::new(),
 			parts: HashMap::new(),
 			inputs: HashMap::new(),
 			outputs: HashMap::new(),
@@ -119,7 +155,7 @@ impl Data {
 		let rules_f = read_to_string(rules_path).unwrap();
 		let roadblock_f = read_to_string(roadblock_path).unwrap();
 
-		let genes: HashMap<String, GeneData> = from_str(&gates_f).unwrap();
+		let genes: Vec<GeneData> = from_str(&gates_f).unwrap();
 		let parts: HashMap<String, Part> = from_str(&parts_f).unwrap();
 		let inputs: HashMap<String, Input> = from_str(&inputs_f).unwrap();
 		let outputs: HashMap<String, String> = from_str(&outputs_f).unwrap();
@@ -141,8 +177,7 @@ impl Data {
 				.collect(),
 		};
 
-		self.genes = genes.clone();
-		self.genes_vec = genes.values().cloned().collect();
+		self.genes = genes;
 		self.parts = parts;
 		self.inputs = inputs;
 		self.rules = new_rules;
@@ -154,12 +189,8 @@ impl Data {
 		self.parts.get(name).unwrap()
 	}
 
-	pub fn get_gene(&self, name: &str) -> &GeneData {
-		self.genes.get(name).unwrap()
-	}
-
 	pub fn get_gene_at(&self, i: usize) -> &GeneData {
-		self.genes_vec.get(i).unwrap()
+		self.genes.get(i).unwrap()
 	}
 
 	pub fn get_rules(&self) -> &Rules {
@@ -175,6 +206,6 @@ impl Data {
 	}
 
 	pub fn genes_len(&self) -> usize {
-		self.genes_vec.len()
+		self.genes.len()
 	}
 }

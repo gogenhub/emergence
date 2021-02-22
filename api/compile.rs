@@ -7,9 +7,9 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{builder, genetic_circuit, helpers, lexer, parser};
+use _utils::{builder, error, genetic_circuit, lexer, parser};
+use error::Error;
 use genetic_circuit::GeneticCircuit;
-use helpers::Error;
 use lambda_runtime::{error::HandlerError, start, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
@@ -67,8 +67,9 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	let mut bld = builder::LogicCircuitBuilder::new(prs);
 	bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut();
-	let gc = lc.fit_into_biological()?;
+	let mut gc = lc.fit_into_biological()?;
 	let (simulation, steady_states) = gc.simulate(lc.testbench);
+	gc.apply_rules();
 	let (dna, plasmid) = gc.into_dna();
 	Ok(CompileResult {
 		gc,
