@@ -43,6 +43,7 @@ impl LogicCircuit {
 			output,
 			components,
 			score: None,
+			simulation: None,
 		};
 		genetic_circuit
 	}

@@ -1,5 +1,6 @@
-use crate::_utils::{data, genetic_circuit};
+use crate::_utils::{data, dna, genetic_circuit};
 use data::{get_data, GeneData};
+use dna::Dna;
 use genetic_circuit::GeneticCircuit;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -113,7 +114,7 @@ impl Gene {
 			let end = start + part.seq.len();
 
 			dna.push_str(&part.seq);
-			plasmid.push_str(&GeneticCircuit::make_plasmid_part(
+			plasmid.push_str(&Dna::make_plasmid_part(
 				&part.kind,
 				start,
 				end,
@@ -128,7 +129,7 @@ impl Gene {
 			let end = start + part.seq.len();
 
 			dna.push_str(&part.seq);
-			plasmid.push_str(&GeneticCircuit::make_plasmid_part(
+			plasmid.push_str(&Dna::make_plasmid_part(
 				&part.kind,
 				start,
 				end,

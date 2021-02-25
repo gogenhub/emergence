@@ -4,12 +4,18 @@ pub mod gene;
 pub use component::Component;
 pub use gene::Gene;
 
-use crate::_utils::{data, logic_circuit};
-use chrono::Utc;
-use data::{get_data, Input, Output, PartKind};
+use crate::_utils::{data, dna, logic_circuit};
+use data::{get_data, Input, Output};
+use dna::Dna;
 use logic_circuit::Testbench;
 use serde::Serialize;
 use std::collections::HashMap;
+
+#[derive(Serialize, Debug)]
+pub struct SimulationData {
+	history: HashMap<String, Vec<f64>>,
+	steady_states: HashMap<String, (f64, f64)>,
+}
 
 #[derive(Serialize, Debug)]
 pub struct GeneticCircuit {
@@ -17,45 +23,10 @@ pub struct GeneticCircuit {
 	pub output: Output,
 	pub components: Vec<Component>,
 	pub score: Option<f64>,
+	pub simulation: Option<SimulationData>,
 }
 
 impl GeneticCircuit {
-	pub fn make_plasmid_dna(seq: &str) -> String {
-		return "ORIGIN\n".to_owned()
-			+ &seq
-				.as_bytes()
-				.chunks(60)
-				.enumerate()
-				.map(|(i, chunk)| {
-					let ch: Vec<String> = chunk
-						.chunks(10)
-						.map(|x| {
-							let parsed: String = std::str::from_utf8(x).unwrap().to_owned();
-							parsed
-						})
-						.collect();
-					let index_fmt = format!("{:>9}", (i * 60) + 1);
-					format!("{} {}", index_fmt, ch.join(" "))
-				})
-				.collect::<Vec<String>>()
-				.join("\n");
-	}
-
-	pub fn make_plasmid_title(name: &str, len: usize) -> String {
-		format!(
-			"LOCUS      {}      {} bp ds-DNA      circular      {}\nFEATURES             Location/Qualifiers\n",
-			name,
-			len,
-			Utc::today().format("%e-%b-%Y")
-		)
-	}
-
-	pub fn make_plasmid_part(kind: &PartKind, start: usize, end: usize, label: &str, color: &str) -> String {
-		return format!("     {:<16}{}..{}\n", format!("{:?}", kind), start + 1, end)
-			+ &format!("                     /label={}\n", label)
-			+ &format!("                     /ApEinfo_fwdcolor={}\n", color);
-	}
-
 	pub fn apply_rules(&mut self) {
 		let data = get_data();
 		let rules = data.get_rules();
@@ -74,7 +45,7 @@ impl GeneticCircuit {
 		(-x / 10.0).exp()
 	}
 
-	pub fn into_dna(&self) -> (String, String) {
+	pub fn into_dna(&self) -> Dna {
 		let data = get_data();
 		let mut gates_plasmid = String::new();
 		let mut promoter_colors = HashMap::new();
@@ -82,7 +53,7 @@ impl GeneticCircuit {
 		let pre_gates = data.get_part("gates_pre_backbone");
 		let mut gates_dna = pre_gates.seq.to_owned();
 
-		gates_plasmid += &Self::make_plasmid_part(&pre_gates.kind, 0, gates_dna.len(), &pre_gates.name, "white");
+		gates_plasmid += &Dna::make_plasmid_part(&pre_gates.kind, 0, gates_dna.len(), &pre_gates.name, "white");
 
 		for comp in &self.components {
 			comp.into_dna(&mut gates_dna, &mut gates_plasmid, &mut promoter_colors);
@@ -101,14 +72,17 @@ impl GeneticCircuit {
 
 		gates_dna += &post_gates2.seq;
 
-		gates_plasmid += &Self::make_plasmid_part(&post_gates1.kind, start1, end1, &post_gates1.name, "white");
-		gates_plasmid += &Self::make_plasmid_part(&post_gates2.kind, start2, end2, &post_gates2.name, "white");
+		gates_plasmid += &Dna::make_plasmid_part(&post_gates1.kind, start1, end1, &post_gates1.name, "white");
+		gates_plasmid += &Dna::make_plasmid_part(&post_gates2.kind, start2, end2, &post_gates2.name, "white");
 
-		let gates_title = Self::make_plasmid_title("gates-plasmid", gates_dna.len());
-		let gates_plasmid_dna: String = Self::make_plasmid_dna(&gates_dna);
+		let gates_title = Dna::make_plasmid_title("gates-plasmid", gates_dna.len());
+		let gates_plasmid_dna: String = Dna::make_plasmid_dna(&gates_dna);
 		let final_gates_plasmid = gates_title + &gates_plasmid + &gates_plasmid_dna;
 
-		(gates_dna, final_gates_plasmid)
+		Dna {
+			raw: gates_dna,
+			plasmid: final_gates_plasmid,
+		}
 	}
 
 	pub fn test(&mut self) -> f64 {
@@ -129,7 +103,7 @@ impl GeneticCircuit {
 		diff_score
 	}
 
-	pub fn simulate(&self, testbench: Testbench) -> (HashMap<String, Vec<f64>>, HashMap<String, (f64, f64)>) {
+	pub fn simulate(&mut self, testbench: Testbench) {
 		let data = get_data();
 		let mut states = HashMap::new();
 		let mut history: HashMap<String, Vec<f64>> = HashMap::new();
@@ -166,6 +140,6 @@ impl GeneticCircuit {
 				comp.model_and_save(&mut states, &mut history);
 			}
 		}
-		(history, steady_states)
+		self.simulation = Some(SimulationData { history, steady_states })
 	}
 }

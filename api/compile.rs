@@ -7,7 +7,8 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{builder, error, genetic_circuit, lexer, parser};
+use _utils::{builder, dna, error, genetic_circuit, lexer, parser};
+use dna::Dna;
 use error::Error;
 use genetic_circuit::GeneticCircuit;
 use lambda_runtime::{error::HandlerError, start, Context};
@@ -18,10 +19,7 @@ use std::{collections::HashMap, error::Error as StdError, str};
 #[derive(Serialize, Debug)]
 struct CompileResult {
 	gc: GeneticCircuit,
-	simulation: HashMap<String, Vec<f64>>,
-	steady_states: HashMap<String, (f64, f64)>,
-	dna: String,
-	plasmid: String,
+	dna: Dna,
 }
 
 #[derive(Deserialize)]
@@ -68,16 +66,10 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut();
 	let mut gc = lc.fit_into_biological()?;
-	let (simulation, steady_states) = gc.simulate(lc.testbench);
+	gc.simulate(lc.testbench);
 	gc.apply_rules();
-	let (dna, plasmid) = gc.into_dna();
-	Ok(CompileResult {
-		gc,
-		simulation,
-		steady_states,
-		dna,
-		plasmid,
-	})
+	let dna = gc.into_dna();
+	Ok(CompileResult { gc, dna })
 }
 
 fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
