@@ -27,7 +27,11 @@ impl Gate {
 		data.genes_len()
 	}
 
-	pub fn into_biological(&self, i: usize, cached: &mut HashMap<String, Component>) -> Vec<Component> {
+	pub fn into_biological(
+		&self,
+		i: usize,
+		cached: &mut HashMap<String, Component>,
+	) -> Vec<Component> {
 		let data = get_data();
 		let gene_data = data.get_gene_at(i).clone();
 
@@ -42,7 +46,9 @@ impl Gate {
 		}
 
 		let val = map(i as u32, 0, data.genes_len() as u32, 0, 355);
-		let color_hex = Hsl::from(val as f32, 100.0, 50.0).to_rgb().to_css_hex_string();
+		let color_hex = Hsl::from(val as f32, 100.0, 50.0)
+			.to_rgb()
+			.to_css_hex_string();
 		let gene = Component::Gene(Gene::new(gene_data, inputs, color_hex));
 		cached.insert(self.output.to_owned(), gene.clone());
 		vec![gene]

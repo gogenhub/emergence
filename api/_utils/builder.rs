@@ -1,8 +1,7 @@
 use crate::_utils::{error, lexer, logic_circuit, parser};
 use error::Error;
 use lexer::Token;
-use logic_circuit::{Device, Gate, GateKind};
-use logic_circuit::{LogicCircuit, Testbench};
+use logic_circuit::{Device, Gate, GateKind, LogicCircuit, Testbench};
 use parser::{Def, Function, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
 
@@ -15,7 +14,7 @@ pub struct LogicCircuitBuilder<'a> {
 impl<'a> LogicCircuitBuilder<'a> {
 	pub fn new(parse_iter: ParserIter<'a>) -> Self {
 		Self {
-			parse_iter: parse_iter,
+			parse_iter,
 			function_tree: HashMap::new(),
 			test_tree: HashMap::new(),
 		}
@@ -53,13 +52,23 @@ impl<'a> LogicCircuitBuilder<'a> {
 				Operation::Logic(lop) => {
 					let kind = Self::get_gate_kind(&lop.symbol)?;
 					match kind {
-						GateKind::Not => Error::invalid_number_of_args(lop.args.len() != 1, &lop.symbol)?,
-						GateKind::Nor => Error::invalid_number_of_args(lop.args.len() != 2, &lop.symbol)?,
+						GateKind::Not => {
+							Error::invalid_number_of_args(lop.args.len() != 1, &lop.symbol)?
+						}
+						GateKind::Nor => {
+							Error::invalid_number_of_args(lop.args.len() != 2, &lop.symbol)?
+						}
 					};
-					Error::already_exists(vmap.contains(&lop.var.value) || pmap.contains(&lop.var.value), &lop.var)?;
+					Error::already_exists(
+						vmap.contains(&lop.var.value) || pmap.contains(&lop.var.value),
+						&lop.var,
+					)?;
 					for arg in &lop.args {
 						vunused.remove(&arg.value);
-						Error::not_found(!vmap.contains(&arg.value) && !pmap.contains(&arg.value), &arg)?;
+						Error::not_found(
+							!vmap.contains(&arg.value) && !pmap.contains(&arg.value),
+							&arg,
+						)?;
 					}
 
 					vmap.insert(lop.var.value.to_owned());
@@ -106,13 +115,22 @@ impl<'a> LogicCircuitBuilder<'a> {
 			let res = res?;
 			match res {
 				Def::Function(func) => {
-					Error::already_exists(self.function_tree.contains_key(&func.iden.value), &func.iden)?;
+					Error::already_exists(
+						self.function_tree.contains_key(&func.iden.value),
+						&func.iden,
+					)?;
 					self.check_function_errors(&func)?;
 					self.function_tree.insert(func.iden.value.to_owned(), func);
 				}
 				Def::Test(test) => {
-					Error::not_found(!self.function_tree.contains_key(&test.iden.value), &test.iden)?;
-					Error::already_exists(self.test_tree.contains_key(&test.iden.value), &test.iden)?;
+					Error::not_found(
+						!self.function_tree.contains_key(&test.iden.value),
+						&test.iden,
+					)?;
+					Error::already_exists(
+						self.test_tree.contains_key(&test.iden.value),
+						&test.iden,
+					)?;
 					self.check_test_errors(&test)?;
 					self.test_tree.insert(test.iden.value.to_owned(), test);
 				}
@@ -170,7 +188,11 @@ impl<'a> LogicCircuitBuilder<'a> {
 		let pmap = Self::args_from_to(&main_func.params, &main_test.params);
 		let devices = self.build_devices(main_func, &pmap);
 
-		let inputs = main_test.params.iter().map(|x| x.value.to_string()).collect();
+		let inputs = main_test
+			.params
+			.iter()
+			.map(|x| x.value.to_string())
+			.collect();
 		let output = main_func.out.value.to_string();
 		let testbench = self.build_testbench();
 		LogicCircuit {

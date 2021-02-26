@@ -2,8 +2,10 @@ use crate::_utils::{data, error, logic_circuit};
 use data::get_data;
 use error::Error;
 use logic_circuit::LogicCircuit;
-use rand::distributions::{Distribution, Uniform};
-use rand::prelude::ThreadRng;
+use rand::{
+	distributions::{Distribution, Uniform},
+	prelude::ThreadRng,
+};
 use std::collections::HashSet;
 
 pub struct Layer {

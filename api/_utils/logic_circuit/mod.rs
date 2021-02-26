@@ -39,7 +39,11 @@ impl LogicCircuit {
 		let out_gene = cached.get(&self.output).unwrap();
 		let output = Output::new(out_gene.name(), out_gene.promoter());
 		let genetic_circuit = GeneticCircuit {
-			inputs: self.inputs.iter().map(|x| data.get_input(&x).clone()).collect(),
+			inputs: self
+				.inputs
+				.iter()
+				.map(|x| data.get_input(&x).clone())
+				.collect(),
 			output,
 			components,
 			score: None,

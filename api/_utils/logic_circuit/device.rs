@@ -14,7 +14,11 @@ impl Device {
 		}
 	}
 
-	pub fn into_biological(&self, i: usize, cached: &mut HashMap<String, Component>) -> Vec<Component> {
+	pub fn into_biological(
+		&self,
+		i: usize,
+		cached: &mut HashMap<String, Component>,
+	) -> Vec<Component> {
 		match self {
 			Self::Gate(gate) => gate.into_biological(i, cached),
 		}

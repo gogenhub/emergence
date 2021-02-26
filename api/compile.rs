@@ -85,7 +85,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		headers.insert("Access-Control-Request-Headers".to_owned(), "*".to_owned());
 		return Ok(Response {
 			status_code: 200,
-			headers: headers,
+			headers,
 			body: "".to_owned(),
 			encoding: None,
 		});
@@ -113,8 +113,8 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	}
 
 	Ok(Response {
-		status_code: status_code,
-		headers: headers,
+		status_code,
+		headers,
 		body: res_body,
 		encoding: None,
 	})

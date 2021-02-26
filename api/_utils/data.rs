@@ -2,8 +2,10 @@ use fs_extra::file::read_to_string;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
-use std::collections::{HashMap, HashSet};
-use std::env;
+use std::{
+	collections::{HashMap, HashSet},
+	env,
+};
 
 static DATA: Lazy<Data> = Lazy::new(|| {
 	let mut d = Data::new();

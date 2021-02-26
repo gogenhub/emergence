@@ -53,7 +53,13 @@ impl GeneticCircuit {
 		let pre_gates = data.get_part("gates_pre_backbone");
 		let mut gates_dna = pre_gates.seq.to_owned();
 
-		gates_plasmid += &Dna::make_plasmid_part(&pre_gates.kind, 0, gates_dna.len(), &pre_gates.name, "white");
+		gates_plasmid += &Dna::make_plasmid_part(
+			&pre_gates.kind,
+			0,
+			gates_dna.len(),
+			&pre_gates.name,
+			"white",
+		);
 
 		for comp in &self.components {
 			comp.into_dna(&mut gates_dna, &mut gates_plasmid, &mut promoter_colors);
@@ -72,8 +78,10 @@ impl GeneticCircuit {
 
 		gates_dna += &post_gates2.seq;
 
-		gates_plasmid += &Dna::make_plasmid_part(&post_gates1.kind, start1, end1, &post_gates1.name, "white");
-		gates_plasmid += &Dna::make_plasmid_part(&post_gates2.kind, start2, end2, &post_gates2.name, "white");
+		gates_plasmid +=
+			&Dna::make_plasmid_part(&post_gates1.kind, start1, end1, &post_gates1.name, "white");
+		gates_plasmid +=
+			&Dna::make_plasmid_part(&post_gates2.kind, start2, end2, &post_gates2.name, "white");
 
 		let gates_title = Dna::make_plasmid_title("gates-plasmid", gates_dna.len());
 		let gates_plasmid_dna: String = Dna::make_plasmid_dna(&gates_dna);
@@ -88,7 +96,10 @@ impl GeneticCircuit {
 	pub fn test(&mut self) -> f64 {
 		let mut cached = HashMap::new();
 		for inp in &self.inputs {
-			cached.insert(inp.promoter(), (inp.rpu_off, inp.rpu_on, 0.0, inp.rpu_on / inp.rpu_off));
+			cached.insert(
+				inp.promoter(),
+				(inp.rpu_off, inp.rpu_on, 0.0, inp.rpu_on / inp.rpu_off),
+			);
 		}
 
 		for comp in &self.components {
@@ -125,7 +136,11 @@ impl GeneticCircuit {
 					let inp = data.get_input(name);
 					states.insert(
 						inp.promoter.to_owned(),
-						if *val == true { inp.rpu_on } else { inp.rpu_off },
+						if *val == true {
+							inp.rpu_on
+						} else {
+							inp.rpu_off
+						},
 					);
 				}
 			}
@@ -140,6 +155,9 @@ impl GeneticCircuit {
 				comp.model_and_save(&mut states, &mut history);
 			}
 		}
-		self.simulation = Some(SimulationData { history, steady_states })
+		self.simulation = Some(SimulationData {
+			history,
+			steady_states,
+		})
 	}
 }

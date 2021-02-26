@@ -62,7 +62,8 @@ impl<'a> ParserIter<'a> {
 	}
 
 	fn get_token(&mut self, kind: TokenKind, value_pre: Option<&[&str]>) -> Result<Token, Error> {
-		let value: Option<Vec<String>> = value_pre.map(|x| x.iter().map(|a| a.to_string()).collect());
+		let value: Option<Vec<String>> =
+			value_pre.map(|x| x.iter().map(|a| a.to_string()).collect());
 		let token = self.tokens.next().ok_or(Error::EndOfFile)?;
 		match (token.kind == kind, value) {
 			(true, None) => Ok(token),
@@ -158,7 +159,10 @@ impl<'a> ParserIter<'a> {
 		let bool_value = bool_token.value.parse::<bool>();
 		let bool_value = match bool_value {
 			Ok(value) => value,
-			Err(_) => Err(Error::UnexpectedToken(bool_token.pos, bool_token.value.len()))?,
+			Err(_) => Err(Error::UnexpectedToken(
+				bool_token.pos,
+				bool_token.value.len(),
+			))?,
 		};
 
 		Ok(TestbenchAssignment {
@@ -184,13 +188,16 @@ impl<'a> ParserIter<'a> {
 		let parsed_time = time_token.value.parse::<u32>();
 		let parsed_time = match parsed_time {
 			Ok(val) => val,
-			Err(_) => Err(Error::UnexpectedToken(time_token.pos, time_token.value.len()))?,
+			Err(_) => Err(Error::UnexpectedToken(
+				time_token.pos,
+				time_token.value.len(),
+			))?,
 		};
 
 		Ok(Breakpoint {
 			symbol: token,
 			time: parsed_time,
-			assignments: assignments,
+			assignments,
 		})
 	}
 

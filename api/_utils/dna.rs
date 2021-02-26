@@ -32,14 +32,20 @@ impl Dna {
 
 	pub fn make_plasmid_title(name: &str, len: usize) -> String {
 		format!(
-			"LOCUS      {}      {} bp ds-Dna      circular      {}\nFEATURES             Location/Qualifiers\n",
-			name,
-			len,
-			Utc::today().format("%e-%b-%Y")
-		)
+            "LOCUS      {}      {} bp ds-Dna      circular      {}\nFEATURES             Location/Qualifiers\n",
+            name,
+            len,
+            Utc::today().format("%e-%b-%Y")
+        )
 	}
 
-	pub fn make_plasmid_part(kind: &PartKind, start: usize, end: usize, label: &str, color: &str) -> String {
+	pub fn make_plasmid_part(
+		kind: &PartKind,
+		start: usize,
+		end: usize,
+		label: &str,
+		color: &str,
+	) -> String {
 		return format!("     {:<16}{}..{}\n", format!("{:?}", kind), start + 1, end)
 			+ &format!("                     /label={}\n", label)
 			+ &format!("                     /ApEinfo_fwdcolor={}\n", color);

@@ -14,7 +14,11 @@ pub struct Gene {
 
 impl Gene {
 	pub fn new(data: GeneData, inputs: Vec<String>, color: String) -> Self {
-		Self { data, inputs, color }
+		Self {
+			data,
+			inputs,
+			color,
+		}
 	}
 
 	pub fn group(&self) -> String {
@@ -49,14 +53,20 @@ impl Gene {
 
 	pub fn transfer(&self, x: f64) -> f64 {
 		let data = &self.data;
-		data.params.ymin + (data.params.ymax - data.params.ymin) / (1.0 + (x / data.params.k).powf(data.params.n))
+		data.params.ymin
+			+ (data.params.ymax - data.params.ymin)
+				/ (1.0 + (x / data.params.k).powf(data.params.n))
 	}
 
 	pub fn model(&self, sum: f64, state: f64) -> f64 {
 		self.transfer(sum) - self.data.params.decay * state
 	}
 
-	pub fn model_and_save(&self, states: &mut HashMap<String, f64>, history: &mut HashMap<String, Vec<f64>>) {
+	pub fn model_and_save(
+		&self,
+		states: &mut HashMap<String, f64>,
+		history: &mut HashMap<String, Vec<f64>>,
+	) {
 		let promoter = &self.data.promoter;
 		let sum: f64 = self.inputs.iter().map(|pro| states.get(pro).unwrap()).sum();
 		let state = states.get(promoter).unwrap();
@@ -106,7 +116,12 @@ impl Gene {
 		cached.insert(self.promoter(), (off, on, curr_std.2, curr_std.3));
 	}
 
-	pub fn into_dna(&self, dna: &mut String, plasmid: &mut String, promoter_colors: &mut HashMap<String, String>) {
+	pub fn into_dna(
+		&self,
+		dna: &mut String,
+		plasmid: &mut String,
+		promoter_colors: &mut HashMap<String, String>,
+	) {
 		let data = get_data();
 		for inp in &self.inputs() {
 			let part = data.get_part(&inp);
