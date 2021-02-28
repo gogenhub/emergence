@@ -1,45 +1,25 @@
-use crate::_utils::{builder, data, devices, helpers};
-use builder::LogicCircuit;
+use crate::_utils::{data, error, logic_circuit};
 use data::get_data;
-use devices::Device;
-use helpers::Error;
-use rand::distributions::{Distribution, Uniform};
-use rand::prelude::ThreadRng;
-use std::collections::{HashMap, HashSet};
-
-pub fn out_error(x: f64) -> f64 {
-	1.0 - (-x / 200.0).exp()
-}
-
-pub fn inv_out_error(x: f64) -> f64 {
-	(-x / 10.0).exp()
-}
-
-pub fn lrate(i: f64, len: f64) -> f64 {
-	(-i / len).exp()
-}
+use error::Error;
+use logic_circuit::LogicCircuit;
+use rand::{
+	distributions::{Distribution, Uniform},
+	prelude::ThreadRng,
+};
+use std::collections::HashSet;
 
 pub struct Layer {
 	nodes: Vec<f64>,
 	rng: ThreadRng,
 	uni: Uniform<f64>,
-	device: Device,
 }
 
 impl Layer {
-	pub fn init(device: Device) -> Self {
-		let len = match &device {
-			Device::Gate(gate) => gate.num_components(),
-		};
+	pub fn init(len: usize) -> Self {
 		let mut rng = rand::thread_rng();
 		let uni = Uniform::new_inclusive(0.0f64, 1.0);
 		let nodes = vec![uni.sample(&mut rng); len];
-		Self {
-			nodes,
-			rng,
-			uni,
-			device,
-		}
+		Self { nodes, rng, uni }
 	}
 
 	pub fn choose_node(&mut self, bl: &mut HashSet<String>) -> usize {
@@ -57,15 +37,15 @@ impl Layer {
 	}
 
 	pub fn insert_bl(&self, i: usize, bl: &mut HashSet<String>) {
-		match &self.device {
-			Device::Gate(gate) => gate.blacklist(i, bl),
-		}
+		let data = get_data();
+		let gene = data.get_gene_at(i);
+		gene.blacklist(bl);
 	}
 
 	pub fn in_bl(&self, i: usize, bl: &HashSet<String>) -> bool {
-		match &self.device {
-			Device::Gate(gate) => gate.is_blacklisted(i, &bl),
-		}
+		let data = get_data();
+		let gene = data.get_gene_at(i);
+		gene.is_blacklisted(&bl)
 	}
 
 	pub fn get_node_from_prob(&self, ch: f64, bl: &HashSet<String>) -> usize {
@@ -93,10 +73,20 @@ impl Layer {
 pub struct GeneNetwork {
 	layers: Vec<Layer>,
 	lc: LogicCircuit,
+	num_iterations: usize,
 }
 
 impl GeneNetwork {
-	pub fn init(lc: LogicCircuit) -> Result<Self, Error> {
+	pub fn out_error(x: f64) -> f64 {
+		1.0 - (-x / 200.0).exp()
+	}
+
+	pub fn lrate(&self, i: f64) -> f64 {
+		let len = self.num_iterations as f64;
+		(-i / len).exp()
+	}
+
+	pub fn init(lc: LogicCircuit, num_iterations: usize) -> Result<Self, Error> {
 		let data = get_data();
 		for input in &lc.inputs {
 			if !data.has_input(input) {
@@ -108,34 +98,32 @@ impl GeneNetwork {
 		}
 		let mut layers = Vec::new();
 		for device in lc.devices.iter().rev() {
-			let layer = Layer::init(device.clone());
+			let layer = Layer::init(device.num_biological());
 			layers.push(layer);
 		}
-		Ok(Self { layers, lc })
+		Ok(Self {
+			layers,
+			lc,
+			num_iterations,
+		})
 	}
 
-	pub fn fit(&mut self) -> Result<(Vec<usize>, f64), Error> {
-		let len = 6000;
+	pub fn fit(&mut self) -> Result<Vec<usize>, Error> {
 		let mut best_score = 0.0;
-		let mut best_org_score = 0.0;
 		let mut best_sel = Vec::new();
-		for i in 0..len {
-			let lr = lrate(i as f64, len as f64);
+		for i in 0..self.num_iterations {
+			let lr = self.lrate(i as f64);
 			let sel_genes = self.walk();
-			let (off, on, diff) = self.test(&sel_genes);
+			let diff_score = self.lc.into_biological(&sel_genes).test();
 
-			let diff_err = inv_out_error(diff);
-			let org_score = on / off;
-			let diff_core = diff_err * org_score;
-			if diff_core > best_score {
-				best_org_score = org_score;
-				best_score = diff_core;
+			if diff_score > best_score {
+				best_score = diff_score;
 				best_sel = sel_genes.clone();
 			}
-			let out = out_error(diff_core);
+			let out = Self::out_error(diff_score);
 			self.update_weights(lr, out, sel_genes);
 		}
-		Ok((best_sel, best_org_score))
+		Ok(best_sel)
 	}
 
 	pub fn walk(&mut self) -> Vec<usize> {
@@ -146,23 +134,6 @@ impl GeneNetwork {
 			selected.push(sel);
 		}
 		selected
-	}
-
-	pub fn test(&self, selected_gates: &Vec<usize>) -> (f64, f64, f64) {
-		let data = get_data();
-		let mut cached = HashMap::new();
-		for arg in &self.lc.inputs {
-			let sensor = data.get_input(&arg);
-			cached.insert(arg.to_owned(), (sensor.rpu_off, sensor.rpu_on, 0.0));
-		}
-		for (i, selected) in selected_gates.iter().rev().enumerate() {
-			let device = self.lc.devices.get(i).unwrap();
-			match device {
-				Device::Gate(gate) => gate.test_steady_state(*selected, &mut cached),
-			}
-		}
-
-		cached[&self.lc.output]
 	}
 
 	pub fn update_weights(&mut self, lr: f64, pr: f64, selected: Vec<usize>) {

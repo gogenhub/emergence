@@ -7,21 +7,19 @@ extern crate serde_json;
 
 mod _utils;
 
-use _utils::{assembler, assigner, builder, helpers, lexer, parser, simulator};
-use assembler::{Assembler, GeneticCircuit};
-use assigner::GeneNetwork;
-use helpers::Error;
+use _utils::{builder, dna, error, genetic_circuit, lexer, parser};
+use dna::Dna;
+use error::Error;
+use genetic_circuit::GeneticCircuit;
 use lambda_runtime::{error::HandlerError, start, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use simulator::simulate;
 use std::{collections::HashMap, error::Error as StdError, str};
 
 #[derive(Serialize, Debug)]
 struct CompileResult {
 	gc: GeneticCircuit,
-	simulation: HashMap<String, Vec<f64>>,
-	steady_states: HashMap<String, (f64, f64)>,
+	dna: Dna,
 }
 
 #[derive(Deserialize)]
@@ -67,18 +65,11 @@ fn compile(emergence: String) -> Result<CompileResult, Error> {
 	let mut bld = builder::LogicCircuitBuilder::new(prs);
 	bld.build_parse_tree()?;
 	let lc = bld.build_logic_circut();
-	let tb = bld.build_testbench();
-	let mut assn = GeneNetwork::init(lc.clone())?;
-	let (selected_gates, score) = assn.fit()?;
-	let assm = Assembler::new(selected_gates, score);
-	let mut gc = assm.assemble(&lc);
-	let (simulation, steady_states) = simulate(&tb, &gc);
-	assm.apply_rules(&mut gc);
-	Ok(CompileResult {
-		gc,
-		simulation,
-		steady_states,
-	})
+	let mut gc = lc.fit_into_biological()?;
+	gc.simulate(lc.testbench);
+	gc.apply_rules();
+	let dna = gc.into_dna();
+	Ok(CompileResult { gc, dna })
 }
 
 fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
@@ -94,7 +85,7 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 		headers.insert("Access-Control-Request-Headers".to_owned(), "*".to_owned());
 		return Ok(Response {
 			status_code: 200,
-			headers: headers,
+			headers,
 			body: "".to_owned(),
 			encoding: None,
 		});
@@ -122,8 +113,8 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	}
 
 	Ok(Response {
-		status_code: status_code,
-		headers: headers,
+		status_code,
+		headers,
 		body: res_body,
 		encoding: None,
 	})

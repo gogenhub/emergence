@@ -1,7 +1,9 @@
 use regex::Regex;
-use std::fmt::{Display, Formatter, Result};
-use std::iter::{Enumerate, Peekable};
-use std::str::Chars;
+use std::{
+	fmt::{Display, Formatter, Result},
+	iter::{Enumerate, Peekable},
+	str::Chars,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TokenKind {

@@ -1,544 +1,386 @@
-{
-	"js2_SrpR": {
-		"name": "js2_SrpR",
-		"parts": [
-			"RiboJ10",
-			"S4",
-			"SrpR",
-			"ECK120029600"
-		],
-		"promoter": "pSrpR",
-		"params": {
-			"K": 0.14380413,
-			"ymax": 19.804829,
-			"n": 2.014746,
-			"ymin": 0.22188976,
-			"decay": 0.2
-		}
-	},
-	"N1_LmrA": {
-		"name": "N1_LmrA",
-		"parts": [
-			"RiboJ64",
-			"N1",
-			"LmrA",
-			"ECK120010876"
-		],
-		"promoter": "pLmrA",
-		"params": {
-			"ymin": 0.2,
-			"n": 2.1,
-			"K": 0.18,
-			"ymax": 2.2,
-			"decay": 0.12
-		}
-	},
-	"js2_LitR": {
-		"name": "js2_LitR",
-		"parts": [
-			"PlmJ",
-			"L1",
-			"LitR",
-			"L3S2P24"
-		],
-		"promoter": "pLitR",
-		"params": {
-			"n": 1.0459112,
-			"ymin": 0.12850182,
-			"K": 0.033230003,
-			"ymax": 23.903784,
-			"decay": 0.85
-		}
-	},
-	"S1_SrpR": {
-		"name": "S1_SrpR",
-		"parts": [
-			"RiboJ10",
-			"S1",
-			"SrpR",
-			"ECK120019600"
-		],
-		"promoter": "pSrpR",
-		"params": {
-			"n": 2.9,
-			"ymin": 0.003,
-			"ymax": 1.3,
-			"K": 0.01,
-			"decay": 0.08
-		}
-	},
-	"H1_HlyIIR": {
-		"name": "H1_HlyIIR",
-		"parts": [
-			"RiboJ51",
-			"H1",
-			"HlyIIR",
-			"ECK120033736"
-		],
-		"promoter": "pHlyIIR",
-		"params": {
-			"ymin": 0.07,
-			"K": 0.19,
-			"n": 2.6,
-			"ymax": 2.5,
-			"decay": 0.19
-		}
-	},
-	"S4_SrpR": {
-		"name": "S4_SrpR",
-		"parts": [
-			"RiboJ10",
-			"S4",
-			"SrpR",
-			"ECK120029600"
-		],
-		"promoter": "pSrpR",
-		"params": {
-			"ymin": 0.007,
-			"K": 0.1,
-			"n": 2.8,
-			"ymax": 2.1,
-			"decay": 0.02
-		}
-	},
-	"F1_AmeR": {
-		"name": "F1_AmeR",
-		"parts": [
-			"RiboJ54",
-			"F1",
-			"AmeR",
-			"L3S3P31"
-		],
-		"promoter": "pAmeR",
-		"params": {
-			"n": 1.4,
-			"ymin": 0.2,
-			"ymax": 3.8,
-			"K": 0.09,
-			"decay": 0.22
-		}
-	},
-	"P3_PhlF": {
-		"name": "P3_PhlF",
-		"parts": [
-			"RiboJ53",
-			"P3",
-			"PhlF",
-			"ECK120033737"
-		],
-		"promoter": "pPhlF",
-		"params": {
-			"n": 4.2,
-			"K": 0.23,
-			"ymin": 0.02,
-			"ymax": 6.8,
-			"decay": 0.07
-		}
-	},
-	"js_QacR": {
-		"name": "js_QacR",
-		"parts": [
-			"RiboJ60",
-			"Q2",
-			"QacR",
-			"ECK120010818"
-		],
-		"promoter": "pQacR",
-		"params": {
-			"ymax": 12.702691,
-			"ymin": 0.09899472,
-			"K": 0.44620433,
-			"n": 1.8179977,
-			"decay": 0.17
-		}
-	},
-	"R1_PsrA": {
-		"name": "R1_PsrA",
-		"parts": [
-			"ScmJ",
-			"R1",
-			"PsrA",
-			"ECK120015440"
-		],
-		"promoter": "pPsrA",
-		"params": {
-			"n": 1.8,
-			"K": 0.19,
-			"ymax": 5.9,
-			"ymin": 0.2,
-			"decay": 0.24
-		}
-	},
-	"E1_BetI": {
-		"name": "E1_BetI",
-		"parts": [
-			"RiboJ57",
-			"E1",
-			"BetI",
-			"L3S3P11"
-		],
-		"promoter": "pBetI",
-		"params": {
-			"ymax": 3.8,
-			"n": 2.4,
-			"ymin": 0.07,
-			"K": 0.41,
-			"decay": 0.09
-		}
-	},
-	"js2_HlyIIR": {
-		"name": "js2_HlyIIR",
-		"parts": [
-			"RiboJ51",
-			"H1",
-			"HlyIIR",
-			"ECK120033736"
-		],
-		"promoter": "pHlyIIR",
-		"params": {
-			"K": 0.5118261,
-			"n": 2.2411685,
-			"ymax": 8.01467,
-			"ymin": 0.2569834,
-			"decay": 0.2
-		}
-	},
-	"js2_PhlF": {
-		"name": "js2_PhlF",
-		"parts": [
-			"RiboJ53",
-			"P3",
-			"PhlF",
-			"ECK120033737"
-		],
-		"promoter": "pPhlF",
-		"params": {
-			"ymin": 0.20127982,
-			"n": 2.3297253,
-			"ymax": 23.18196,
-			"K": 0.42972034,
-			"decay": 0.35
-		}
-	},
-	"Q2_QacR": {
-		"name": "Q2_QacR",
-		"parts": [
-			"RiboJ60",
-			"Q2",
-			"QacR",
-			"ECK120010818"
-		],
-		"promoter": "pQacR",
-		"params": {
-			"n": 2.4,
-			"ymax": 2.8,
-			"ymin": 0.03,
-			"K": 0.21,
-			"decay": 0.034
-		}
-	},
-	"S3_SrpR": {
-		"name": "S3_SrpR",
-		"parts": [
-			"RiboJ10",
-			"S3",
-			"SrpR",
-			"ECK120029600"
-		],
-		"promoter": "pSrpR",
-		"params": {
-			"K": 0.06,
-			"n": 2.8,
-			"ymin": 0.004,
-			"ymax": 2.1,
-			"decay": 0.08
-		}
-	},
-	"I1_IcaRA": {
-		"name": "I1_IcaRA",
-		"parts": [
-			"ElvJ",
-			"I1",
-			"IcaRA",
-			"ECK120016170"
-		],
-		"promoter": "pIcaRA",
-		"params": {
-			"n": 1.4,
-			"ymax": 2.2,
-			"K": 0.1,
-			"ymin": 0.08,
-			"decay": 0.09
-		}
-	},
-	"js2_BetI": {
-		"name": "js2_BetI",
-		"parts": [
-			"RiboJ57",
-			"E1",
-			"BetI",
-			"L3S3P11"
-		],
-		"promoter": "pBetI",
-		"params": {
-			"ymin": 0.09894928,
-			"ymax": 11.517904,
-			"K": 0.92337215,
-			"n": 2.0406754,
-			"decay": 0.16
-		}
-	},
-	"B1_BM3R1": {
-		"name": "B1_BM3R1",
-		"parts": [
-			"SarJ",
-			"B1",
-			"BM3R1",
-			"L3S2P11"
-		],
-		"promoter": "pBM3R1",
-		"params": {
-			"n": 3.4,
-			"K": 0.04,
-			"ymin": 0.004,
-			"ymax": 0.5,
-			"decay": 0.09
-		}
-	},
-	"P2_PhlF": {
-		"name": "P2_PhlF",
-		"parts": [
-			"RiboJ53",
-			"P2",
-			"PhlF",
-			"ECK120033737"
-		],
-		"promoter": "pPhlF",
-		"params": {
-			"ymin": 0.02,
-			"K": 0.13,
-			"n": 3.9,
-			"ymax": 4.1,
-			"decay": 0.08
-		}
-	},
-	"L1_LitR": {
-		"name": "L1_LitR",
-		"parts": [
-			"PlmJ",
-			"L1",
-			"LitR",
-			"L3S2P24"
-		],
-		"promoter": "pLitR",
-		"params": {
-			"ymin": 0.07,
-			"K": 0.05,
-			"n": 1.7,
-			"ymax": 4.3,
-			"decay": 0.12
-		}
-	},
-	"js2_IcaRA": {
-		"name": "js2_IcaRA",
-		"parts": [
-			"ElvJ",
-			"I1",
-			"IcaRA",
-			"ECK120016170"
-		],
-		"promoter": "pIcaRA",
-		"params": {
-			"ymax": 10.87176,
-			"K": 0.14354111,
-			"n": 1.0731351,
-			"ymin": 0.18155695,
-			"decay": 0.17
-		}
-	},
-	"const_TetR": {
-		"name": "const_TetR",
-		"parts": [
-			"rbs_TetR",
-			"TetR",
-			"terminator_TetR"
-		],
-		"promoter": "pTet",
-		"params": {
-			"ymin": 0.008315565,
-			"ymax": 8.925729,
-			"K": 0.96009725,
-			"n": 5.4184265,
-			"decay": 0.078
-		}
-	},
-	"S2_SrpR": {
-		"name": "S2_SrpR",
-		"parts": [
-			"RiboJ10",
-			"S2",
-			"SrpR",
-			"ECK120029600"
-		],
-		"promoter": "pSrpR",
-		"params": {
-			"ymax": 2.1,
-			"K": 0.04,
-			"ymin": 0.003,
-			"n": 2.6,
-			"decay": 0.048
-		}
-	},
-	"js2_BM3R1": {
-		"name": "js2_BM3R1",
-		"parts": [
-			"SarJ",
-			"B3",
-			"BM3R1",
-			"L3S2P11"
-		],
-		"promoter": "pBM3R1",
-		"params": {
-			"n": 1.5545532,
-			"ymin": 0.21301645,
-			"ymax": 2.416022,
-			"K": 0.23055537,
-			"decay": 0.2
-		}
-	},
-	"A1_AmtR": {
-		"name": "A1_AmtR",
-		"parts": [
-			"BydvJ",
-			"A1",
-			"AmtR",
-			"L3S2P55"
-		],
-		"promoter": "pAmtR",
-		"params": {
-			"ymax": 3.8,
-			"K": 0.07,
-			"n": 1.6,
-			"ymin": 0.06,
-			"decay": 0.07
-		}
-	},
-	"P1_PhlF": {
-		"name": "P1_PhlF",
-		"parts": [
-			"RiboJ53",
-			"P1",
-			"PhlF",
-			"ECK120033737"
-		],
-		"promoter": "pPhlF",
-		"params": {
-			"K": 0.03,
-			"ymax": 3.9,
-			"n": 4.0,
-			"ymin": 0.01,
-			"decay": 0.03
-		}
-	},
-	"Q1_QacR": {
-		"name": "Q1_QacR",
-		"parts": [
-			"RiboJ60",
-			"Q1",
-			"QacR",
-			"ECK120010818"
-		],
-		"promoter": "pQacR",
-		"params": {
-			"n": 2.7,
-			"K": 0.05,
-			"ymin": 0.01,
-			"ymax": 2.4,
-			"decay": 0.09
-		}
-	},
-	"B3_BM3R1": {
-		"name": "B3_BM3R1",
-		"parts": [
-			"SarJ",
-			"B3",
-			"BM3R1",
-			"L3S2P11"
-		],
-		"promoter": "pBM3R1",
-		"params": {
-			"K": 0.26,
-			"ymin": 0.01,
-			"ymax": 0.8,
-			"n": 3.4,
-			"decay": 0.008
-		}
-	},
-	"an0_AmeR": {
-		"name": "an0_AmeR",
-		"parts": [
-			"RiboJ54",
-			"F1",
-			"AmeR",
-			"L3S3P31"
-		],
-		"promoter": "pAmeR",
-		"params": {
-			"ymin": 0.6615745,
-			"K": 0.14592311,
-			"n": 1.0583483,
-			"ymax": 13.662453,
-			"decay": 0.2366
-		}
-	},
-	"B2_BM3R1": {
-		"name": "B2_BM3R1",
-		"parts": [
-			"SarJ",
-			"B2",
-			"BM3R1",
-			"L3S2P11"
-		],
-		"promoter": "pBM3R1",
-		"params": {
-			"ymax": 0.5,
-			"ymin": 0.005,
-			"n": 2.9,
-			"K": 0.15,
-			"decay": 0.04
-		}
-	},
-	"const_LacI": {
-		"name": "const_LacI",
-		"parts": [
-			"rbs_LacI",
-			"LacI",
-			"terminator_LacI"
-		],
-		"promoter": "pLac",
-		"params": {
-			"K": 0.21314542,
-			"ymin": 0.011691542,
-			"ymax": 5.2754087,
-			"n": 1.6619434,
-			"decay": 0.045
-		}
-	},
-	"js2_AmtR": {
-		"name": "js2_AmtR",
-		"parts": [
-			"BydvJ",
-			"A1",
-			"AmtR",
-			"L3S2P55"
-		],
-		"promoter": "pAmtR",
-		"params": {
-			"ymax": 14.8446245,
-			"ymin": 0.11756945,
-			"n": 1.0837578,
-			"K": 0.064508624,
-			"decay": 0.0884462
-		}
-	}
-}
+[
+  {
+    "name": "js2_SrpR",
+    "parts": ["RiboJ10", "S4", "SrpR", "ECK120029600"],
+    "promoter": "pSrpR",
+    "params": {
+      "K": 0.14380413,
+      "ymax": 19.804829,
+      "n": 2.014746,
+      "ymin": 0.22188976,
+      "decay": 0.2
+    }
+  },
+  {
+    "name": "N1_LmrA",
+    "parts": ["RiboJ64", "N1", "LmrA", "ECK120010876"],
+    "promoter": "pLmrA",
+    "params": {
+      "ymin": 0.2,
+      "n": 2.1,
+      "K": 0.18,
+      "ymax": 2.2,
+      "decay": 0.12
+    }
+  },
+  {
+    "name": "js2_LitR",
+    "parts": ["PlmJ", "L1", "LitR", "L3S2P24"],
+    "promoter": "pLitR",
+    "params": {
+      "n": 1.0459112,
+      "ymin": 0.12850182,
+      "K": 0.033230003,
+      "ymax": 23.903784,
+      "decay": 0.85
+    }
+  },
+  {
+    "name": "S1_SrpR",
+    "parts": ["RiboJ10", "S1", "SrpR", "ECK120019600"],
+    "promoter": "pSrpR",
+    "params": {
+      "n": 2.9,
+      "ymin": 0.003,
+      "ymax": 1.3,
+      "K": 0.01,
+      "decay": 0.08
+    }
+  },
+  {
+    "name": "H1_HlyIIR",
+    "parts": ["RiboJ51", "H1", "HlyIIR", "ECK120033736"],
+    "promoter": "pHlyIIR",
+    "params": {
+      "ymin": 0.07,
+      "K": 0.19,
+      "n": 2.6,
+      "ymax": 2.5,
+      "decay": 0.19
+    }
+  },
+  {
+    "name": "S4_SrpR",
+    "parts": ["RiboJ10", "S4", "SrpR", "ECK120029600"],
+    "promoter": "pSrpR",
+    "params": {
+      "ymin": 0.007,
+      "K": 0.1,
+      "n": 2.8,
+      "ymax": 2.1,
+      "decay": 0.02
+    }
+  },
+  {
+    "name": "F1_AmeR",
+    "parts": ["RiboJ54", "F1", "AmeR", "L3S3P31"],
+    "promoter": "pAmeR",
+    "params": {
+      "n": 1.4,
+      "ymin": 0.2,
+      "ymax": 3.8,
+      "K": 0.09,
+      "decay": 0.22
+    }
+  },
+  {
+    "name": "P3_PhlF",
+    "parts": ["RiboJ53", "P3", "PhlF", "ECK120033737"],
+    "promoter": "pPhlF",
+    "params": {
+      "n": 4.2,
+      "K": 0.23,
+      "ymin": 0.02,
+      "ymax": 6.8,
+      "decay": 0.07
+    }
+  },
+  {
+    "name": "js_QacR",
+    "parts": ["RiboJ60", "Q2", "QacR", "ECK120010818"],
+    "promoter": "pQacR",
+    "params": {
+      "ymax": 12.702691,
+      "ymin": 0.09899472,
+      "K": 0.44620433,
+      "n": 1.8179977,
+      "decay": 0.17
+    }
+  },
+  {
+    "name": "R1_PsrA",
+    "parts": ["ScmJ", "R1", "PsrA", "ECK120015440"],
+    "promoter": "pPsrA",
+    "params": {
+      "n": 1.8,
+      "K": 0.19,
+      "ymax": 5.9,
+      "ymin": 0.2,
+      "decay": 0.24
+    }
+  },
+  {
+    "name": "E1_BetI",
+    "parts": ["RiboJ57", "E1", "BetI", "L3S3P11"],
+    "promoter": "pBetI",
+    "params": {
+      "ymax": 3.8,
+      "n": 2.4,
+      "ymin": 0.07,
+      "K": 0.41,
+      "decay": 0.09
+    }
+  },
+  {
+    "name": "js2_HlyIIR",
+    "parts": ["RiboJ51", "H1", "HlyIIR", "ECK120033736"],
+    "promoter": "pHlyIIR",
+    "params": {
+      "K": 0.5118261,
+      "n": 2.2411685,
+      "ymax": 8.01467,
+      "ymin": 0.2569834,
+      "decay": 0.2
+    }
+  },
+  {
+    "name": "js2_PhlF",
+    "parts": ["RiboJ53", "P3", "PhlF", "ECK120033737"],
+    "promoter": "pPhlF",
+    "params": {
+      "ymin": 0.20127982,
+      "n": 2.3297253,
+      "ymax": 23.18196,
+      "K": 0.42972034,
+      "decay": 0.35
+    }
+  },
+  {
+    "name": "Q2_QacR",
+    "parts": ["RiboJ60", "Q2", "QacR", "ECK120010818"],
+    "promoter": "pQacR",
+    "params": {
+      "n": 2.4,
+      "ymax": 2.8,
+      "ymin": 0.03,
+      "K": 0.21,
+      "decay": 0.034
+    }
+  },
+  {
+    "name": "S3_SrpR",
+    "parts": ["RiboJ10", "S3", "SrpR", "ECK120029600"],
+    "promoter": "pSrpR",
+    "params": {
+      "K": 0.06,
+      "n": 2.8,
+      "ymin": 0.004,
+      "ymax": 2.1,
+      "decay": 0.08
+    }
+  },
+  {
+    "name": "I1_IcaRA",
+    "parts": ["ElvJ", "I1", "IcaRA", "ECK120016170"],
+    "promoter": "pIcaRA",
+    "params": {
+      "n": 1.4,
+      "ymax": 2.2,
+      "K": 0.1,
+      "ymin": 0.08,
+      "decay": 0.09
+    }
+  },
+  {
+    "name": "js2_BetI",
+    "parts": ["RiboJ57", "E1", "BetI", "L3S3P11"],
+    "promoter": "pBetI",
+    "params": {
+      "ymin": 0.09894928,
+      "ymax": 11.517904,
+      "K": 0.92337215,
+      "n": 2.0406754,
+      "decay": 0.16
+    }
+  },
+  {
+    "name": "B1_BM3R1",
+    "parts": ["SarJ", "B1", "BM3R1", "L3S2P11"],
+    "promoter": "pBM3R1",
+    "params": {
+      "n": 3.4,
+      "K": 0.04,
+      "ymin": 0.004,
+      "ymax": 0.5,
+      "decay": 0.09
+    }
+  },
+  {
+    "name": "P2_PhlF",
+    "parts": ["RiboJ53", "P2", "PhlF", "ECK120033737"],
+    "promoter": "pPhlF",
+    "params": {
+      "ymin": 0.02,
+      "K": 0.13,
+      "n": 3.9,
+      "ymax": 4.1,
+      "decay": 0.08
+    }
+  },
+  {
+    "name": "L1_LitR",
+    "parts": ["PlmJ", "L1", "LitR", "L3S2P24"],
+    "promoter": "pLitR",
+    "params": {
+      "ymin": 0.07,
+      "K": 0.05,
+      "n": 1.7,
+      "ymax": 4.3,
+      "decay": 0.12
+    }
+  },
+  {
+    "name": "js2_IcaRA",
+    "parts": ["ElvJ", "I1", "IcaRA", "ECK120016170"],
+    "promoter": "pIcaRA",
+    "params": {
+      "ymax": 10.87176,
+      "K": 0.14354111,
+      "n": 1.0731351,
+      "ymin": 0.18155695,
+      "decay": 0.17
+    }
+  },
+  {
+    "name": "const_TetR",
+    "parts": ["rbs_TetR", "TetR", "terminator_TetR"],
+    "promoter": "pTet",
+    "params": {
+      "ymin": 0.008315565,
+      "ymax": 8.925729,
+      "K": 0.96009725,
+      "n": 5.4184265,
+      "decay": 0.078
+    }
+  },
+  {
+    "name": "S2_SrpR",
+    "parts": ["RiboJ10", "S2", "SrpR", "ECK120029600"],
+    "promoter": "pSrpR",
+    "params": {
+      "ymax": 2.1,
+      "K": 0.04,
+      "ymin": 0.003,
+      "n": 2.6,
+      "decay": 0.048
+    }
+  },
+  {
+    "name": "js2_BM3R1",
+    "parts": ["SarJ", "B3", "BM3R1", "L3S2P11"],
+    "promoter": "pBM3R1",
+    "params": {
+      "n": 1.5545532,
+      "ymin": 0.21301645,
+      "ymax": 2.416022,
+      "K": 0.23055537,
+      "decay": 0.2
+    }
+  },
+  {
+    "name": "A1_AmtR",
+    "parts": ["BydvJ", "A1", "AmtR", "L3S2P55"],
+    "promoter": "pAmtR",
+    "params": {
+      "ymax": 3.8,
+      "K": 0.07,
+      "n": 1.6,
+      "ymin": 0.06,
+      "decay": 0.07
+    }
+  },
+  {
+    "name": "P1_PhlF",
+    "parts": ["RiboJ53", "P1", "PhlF", "ECK120033737"],
+    "promoter": "pPhlF",
+    "params": {
+      "K": 0.03,
+      "ymax": 3.9,
+      "n": 4.0,
+      "ymin": 0.01,
+      "decay": 0.03
+    }
+  },
+  {
+    "name": "Q1_QacR",
+    "parts": ["RiboJ60", "Q1", "QacR", "ECK120010818"],
+    "promoter": "pQacR",
+    "params": {
+      "n": 2.7,
+      "K": 0.05,
+      "ymin": 0.01,
+      "ymax": 2.4,
+      "decay": 0.09
+    }
+  },
+  {
+    "name": "B3_BM3R1",
+    "parts": ["SarJ", "B3", "BM3R1", "L3S2P11"],
+    "promoter": "pBM3R1",
+    "params": {
+      "K": 0.26,
+      "ymin": 0.01,
+      "ymax": 0.8,
+      "n": 3.4,
+      "decay": 0.008
+    }
+  },
+  {
+    "name": "an0_AmeR",
+    "parts": ["RiboJ54", "F1", "AmeR", "L3S3P31"],
+    "promoter": "pAmeR",
+    "params": {
+      "ymin": 0.6615745,
+      "K": 0.14592311,
+      "n": 1.0583483,
+      "ymax": 13.662453,
+      "decay": 0.2366
+    }
+  },
+  {
+    "name": "B2_BM3R1",
+    "parts": ["SarJ", "B2", "BM3R1", "L3S2P11"],
+    "promoter": "pBM3R1",
+    "params": {
+      "ymax": 0.5,
+      "ymin": 0.005,
+      "n": 2.9,
+      "K": 0.15,
+      "decay": 0.04
+    }
+  },
+  {
+    "name": "const_LacI",
+    "parts": ["rbs_LacI", "LacI", "terminator_LacI"],
+    "promoter": "pLac",
+    "params": {
+      "K": 0.21314542,
+      "ymin": 0.011691542,
+      "ymax": 5.2754087,
+      "n": 1.6619434,
+      "decay": 0.045
+    }
+  },
+  {
+    "name": "js2_AmtR",
+    "parts": ["BydvJ", "A1", "AmtR", "L3S2P55"],
+    "promoter": "pAmtR",
+    "params": {
+      "ymax": 14.8446245,
+      "ymin": 0.11756945,
+      "n": 1.0837578,
+      "K": 0.064508624,
+      "decay": 0.0884462
+    }
+  }
+]
