@@ -87,15 +87,6 @@ impl GeneNetwork {
 	}
 
 	pub fn init(lc: LogicCircuit, num_iterations: usize) -> Result<Self, Error> {
-		let data = get_data();
-		for input in &lc.inputs {
-			if !data.has_input(input) {
-				return Err(Error::NotFound(0, 0));
-			}
-		}
-		if lc.devices.len() > data.genes_len() {
-			return Err(Error::NotEnoughGates);
-		}
 		let mut layers = Vec::new();
 		for device in lc.devices.iter().rev() {
 			let layer = Layer::init(device.num_biological());
@@ -127,7 +118,7 @@ impl GeneNetwork {
 	}
 
 	pub fn walk(&mut self) -> Vec<usize> {
-		let mut bl: HashSet<String> = self.lc.inputs.iter().map(|x| x.to_string()).collect();
+		let mut bl: HashSet<String> = self.lc.inputs.iter().map(|x| x.value.to_string()).collect();
 		let mut selected = Vec::new();
 		for layer in &mut self.layers {
 			let sel = layer.choose_node(&mut bl);

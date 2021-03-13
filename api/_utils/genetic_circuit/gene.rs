@@ -1,26 +1,17 @@
-use crate::_utils::{data, dna, genetic_circuit};
+use crate::_utils::{data, dna};
 use data::{get_data, GeneData};
 use dna::Dna;
-use genetic_circuit::GeneticCircuit;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Gene {
-	data: GeneData,
-	color: String,
-	inputs: Vec<String>,
+	pub data: GeneData,
+	pub color: String,
+	pub inputs: Vec<String>,
 }
 
 impl Gene {
-	pub fn new(data: GeneData, inputs: Vec<String>, color: String) -> Self {
-		Self {
-			data,
-			inputs,
-			color,
-		}
-	}
-
 	pub fn group(&self) -> String {
 		self.data.group()
 	}
@@ -72,7 +63,7 @@ impl Gene {
 		let state = states.get(promoter).unwrap();
 		let flux = self.model(sum, *state);
 		let new_state = state + flux;
-		states.insert(promoter.to_owned(), new_state);
+		states.insert(promoter.to_string(), new_state);
 		let hist = history.get_mut(promoter).unwrap();
 		hist.push(new_state);
 	}
@@ -94,7 +85,7 @@ impl Gene {
 		}
 
 		let (off, on) = self.steady_state(sum_on, sum_off);
-		cached.insert(data.promoter.to_owned(), (off, on));
+		cached.insert(data.promoter.to_string(), (off, on));
 	}
 
 	pub fn test_steady_state(&self, cached: &mut HashMap<String, (f64, f64, f64, f64)>) {
@@ -134,7 +125,7 @@ impl Gene {
 				start,
 				end,
 				&part.name,
-				promoter_colors.get(inp).unwrap_or(&"white".to_owned()),
+				promoter_colors.get(inp).unwrap_or(&"white".to_string()),
 			));
 		}
 

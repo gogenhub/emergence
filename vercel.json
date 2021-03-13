@@ -1,9 +1,9 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/compile.rs",
-      "use": "@genhub/vercel-rust"
-    }
-  ]
+	"version": 2,
+	"builds": [
+		{
+			"src": "api/compile.rs",
+			"use": "@genhub/vercel-rust"
+		}
+	]
 }
