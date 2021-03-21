@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
 pub enum Component {
 	Gene(Gene),
 	Signal(Signal),
