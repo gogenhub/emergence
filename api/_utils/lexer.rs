@@ -72,47 +72,47 @@ impl<'a> Iterator for LexerIter<'a> {
 					c.to_string()
 				}
 			};
-			let res = match group.as_str() {
-				"\n" | "\t" | " " => None,
-				"let" | "out" | "func" | "test" => Some(Token {
-					kind: TokenKind::Keyword,
-					value: group.to_owned(),
-					pos,
-				}),
-				"(" | ")" | "{" | "}" | "," | ";" | "=" | "@" => Some(Token {
-					kind: TokenKind::Sign,
-					value: group.to_owned(),
-					pos,
-				}),
-				"not" | "nor" => Some(Token {
-					kind: TokenKind::Operation,
-					value: group.to_owned(),
-					pos,
-				}),
-				"true" | "false" => Some(Token {
-					kind: TokenKind::Value,
-					value: group.to_owned(),
-					pos,
-				}),
-				c if chars.is_match(&c.to_string()) => Some(Token {
-					kind: TokenKind::Name,
-					value: group.to_owned(),
-					pos,
-				}),
-				c if numbers.is_match(&c.to_string()) => Some(Token {
-					kind: TokenKind::Value,
-					value: group.to_owned(),
-					pos,
-				}),
-				_ => Some(Token {
-					kind: TokenKind::Unknown,
-					value: group.to_owned(),
-					pos,
-				}),
-			};
-			if res.is_some() {
-				return res;
+			if ["\n", "\t", " "].contains(&group.as_str()) {
+				continue;
 			}
+			let res = match group.as_str() {
+				"out" | "in" | "let" | "impl" | "test" | "for" | "mod" | "env" => Token {
+					kind: TokenKind::Keyword,
+					value: group.to_string(),
+					pos,
+				},
+				"(" | ")" | "{" | "}" | "," | ";" | "=" | "@" => Token {
+					kind: TokenKind::Sign,
+					value: group.to_string(),
+					pos,
+				},
+				"not" | "nor" => Token {
+					kind: TokenKind::Operation,
+					value: group.to_string(),
+					pos,
+				},
+				"true" | "false" => Token {
+					kind: TokenKind::Value,
+					value: group.to_string(),
+					pos,
+				},
+				c if chars.is_match(&c.to_string()) => Token {
+					kind: TokenKind::Name,
+					value: group.to_string(),
+					pos,
+				},
+				c if numbers.is_match(&c.to_string()) => Token {
+					kind: TokenKind::Value,
+					value: group.to_string(),
+					pos,
+				},
+				_ => Token {
+					kind: TokenKind::Unknown,
+					value: group.to_string(),
+					pos,
+				},
+			};
+			return Some(res);
 		}
 		None
 	}

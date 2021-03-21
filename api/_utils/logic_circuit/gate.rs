@@ -37,11 +37,7 @@ impl Gate {
 
 		let mut inputs = Vec::new();
 		for inp in &self.inputs {
-			let input = if data.has_input(&inp) {
-				data.get_input(inp).promoter.to_owned()
-			} else {
-				cached.get(inp).unwrap().promoter().to_owned()
-			};
+			let input = cached.get(inp).unwrap().promoter().to_string();
 			inputs.push(input);
 		}
 
@@ -49,8 +45,12 @@ impl Gate {
 		let color_hex = Hsl::from(val as f32, 100.0, 50.0)
 			.to_rgb()
 			.to_css_hex_string();
-		let gene = Component::Gene(Gene::new(gene_data, inputs, color_hex));
-		cached.insert(self.output.to_owned(), gene.clone());
-		vec![gene]
+		let gene = Gene {
+			inputs,
+			data: gene_data,
+			color: color_hex,
+		};
+		cached.insert(self.output.to_string(), Component::Gene(gene.clone()));
+		vec![Component::Gene(gene)]
 	}
 }

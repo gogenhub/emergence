@@ -6,11 +6,13 @@ use serde::Serialize;
 pub struct Dna {
 	pub raw: String,
 	pub plasmid: String,
+	pub out_raw: String,
+	pub out_plasmid: String,
 }
 
 impl Dna {
 	pub fn make_plasmid_dna(seq: &str) -> String {
-		return "ORIGIN\n".to_owned()
+		return "ORIGIN\n".to_string()
 			+ &seq
 				.as_bytes()
 				.chunks(60)
@@ -19,7 +21,7 @@ impl Dna {
 					let ch: Vec<String> = chunk
 						.chunks(10)
 						.map(|x| {
-							let parsed: String = std::str::from_utf8(x).unwrap().to_owned();
+							let parsed: String = std::str::from_utf8(x).unwrap().to_string();
 							parsed
 						})
 						.collect();

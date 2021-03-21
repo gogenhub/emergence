@@ -76,24 +76,27 @@ fn handler(e: NowEvent, _: Context) -> Result<Response, HandlerError> {
 	let req: Request = serde_json::from_str(&e.body)?;
 
 	let mut headers = HashMap::new();
-	headers.insert("Access-Control-Allow-Origin".to_owned(), "*".to_owned());
+	headers.insert("Access-Control-Allow-Origin".to_string(), "*".to_string());
 	if req.method == Method::OPTIONS {
 		headers.insert(
-			"Access-Control-Request-Method".to_owned(),
-			"POST, OPTIONS, GET".to_owned(),
+			"Access-Control-Request-Method".to_string(),
+			"POST, OPTIONS, GET".to_string(),
 		);
-		headers.insert("Access-Control-Request-Headers".to_owned(), "*".to_owned());
+		headers.insert(
+			"Access-Control-Request-Headers".to_string(),
+			"*".to_string(),
+		);
 		return Ok(Response {
 			status_code: 200,
 			headers,
-			body: "".to_owned(),
+			body: "".to_string(),
 			encoding: None,
 		});
 	}
 	let req_body = if req.encoding.is_some() && req.encoding.unwrap() == "base64" {
 		str::from_utf8(&base64::decode(&req.body).unwrap_or_default())
 			.unwrap()
-			.to_owned()
+			.to_string()
 	} else {
 		req.body
 	};

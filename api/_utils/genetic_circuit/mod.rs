@@ -1,11 +1,15 @@
-pub mod component;
-pub mod gene;
+mod actuator;
+mod component;
+mod gene;
+mod signal;
 
+pub use actuator::Actuator;
 pub use component::Component;
 pub use gene::Gene;
+pub use signal::Signal;
 
 use crate::_utils::{data, dna, logic_circuit};
-use data::{get_data, Input, Output};
+use data::{get_data, PartKind};
 use dna::Dna;
 use logic_circuit::Testbench;
 use serde::Serialize;
@@ -19,8 +23,8 @@ pub struct SimulationData {
 
 #[derive(Serialize, Debug)]
 pub struct GeneticCircuit {
-	pub inputs: Vec<Input>,
-	pub output: Output,
+	pub inputs: Vec<Signal>,
+	pub outputs: Vec<Actuator>,
 	pub components: Vec<Component>,
 	pub score: Option<f64>,
 	pub simulation: Option<SimulationData>,
@@ -51,7 +55,7 @@ impl GeneticCircuit {
 		let mut promoter_colors = HashMap::new();
 
 		let pre_gates = data.get_part("gates_pre_backbone");
-		let mut gates_dna = pre_gates.seq.to_owned();
+		let mut gates_dna = pre_gates.seq.to_string();
 
 		gates_plasmid += &Dna::make_plasmid_part(
 			&pre_gates.kind,
@@ -87,9 +91,63 @@ impl GeneticCircuit {
 		let gates_plasmid_dna: String = Dna::make_plasmid_dna(&gates_dna);
 		let final_gates_plasmid = gates_title + &gates_plasmid + &gates_plasmid_dna;
 
+		// -----------------OUTPUT---------------------------
+		let mut output_plasmid = String::new();
+		let pre_output = data.get_part("output_pre_backbone");
+		let mut output_dna = pre_output.seq.to_owned();
+
+		output_plasmid += &Dna::make_plasmid_part(
+			&pre_output.kind,
+			0,
+			output_dna.len(),
+			&pre_output.name,
+			"white",
+		);
+
+		let out = &self.outputs[0];
+		let part = data.get_part(&out.input);
+		let start = output_dna.len();
+		let end = start + part.seq.len();
+
+		output_dna += &part.seq;
+
+		output_plasmid += &Dna::make_plasmid_part(
+			&part.kind,
+			start,
+			end,
+			&part.name,
+			promoter_colors
+				.get(&out.input)
+				.unwrap_or(&"white".to_owned()),
+		);
+
+		let out_part = data.get_part(&out.name);
+		let start = output_dna.len();
+		let end = start + out_part.seq.len();
+
+		output_plasmid +=
+			&Dna::make_plasmid_part(&PartKind::Actuator, start, end, &out.name, "white");
+
+		output_dna += &out_part.seq;
+
+		let post_output = data.get_part("output_post_backbone");
+		let start = output_dna.len();
+		let end = start + post_output.seq.len();
+
+		output_plasmid +=
+			&Dna::make_plasmid_part(&post_output.kind, start, end, &post_output.name, "white");
+		output_dna += &post_output.seq;
+
+		let output_title = Dna::make_plasmid_title("output-plasmid", output_plasmid.len());
+
+		let output_plasmid_dna = Dna::make_plasmid_dna(&output_dna);
+		let final_output_plasmid = output_title + &output_plasmid + &output_plasmid_dna;
+
 		Dna {
 			raw: gates_dna,
 			plasmid: final_gates_plasmid,
+			out_raw: output_dna,
+			out_plasmid: final_output_plasmid,
 		}
 	}
 
@@ -106,7 +164,7 @@ impl GeneticCircuit {
 			comp.test_steady_state(&mut cached);
 		}
 
-		let (_, _, diff, score) = cached[&self.output.promoter()];
+		let (_, _, diff, score) = cached[&self.outputs[0].input];
 		let diff_err = Self::inv_diff_error(diff);
 		let diff_score = diff_err * score;
 
@@ -120,9 +178,9 @@ impl GeneticCircuit {
 		let mut history: HashMap<String, Vec<f64>> = HashMap::new();
 		let mut steady_states: HashMap<String, (f64, f64)> = HashMap::new();
 		for inp in &self.inputs {
-			states.insert(inp.promoter.to_owned(), inp.rpu_off);
-			history.insert(inp.promoter.to_owned(), Vec::new());
-			steady_states.insert(inp.promoter.to_owned(), (inp.rpu_off, inp.rpu_on));
+			states.insert(inp.promoter(), inp.rpu_off);
+			history.insert(inp.promoter(), Vec::new());
+			steady_states.insert(inp.promoter(), (inp.rpu_off, inp.rpu_on));
 		}
 		for comp in &self.components {
 			states.insert(comp.promoter(), 0.0);
@@ -133,9 +191,9 @@ impl GeneticCircuit {
 			if testbench.breakpoints.contains_key(&i) {
 				let bp = testbench.breakpoints.get(&i).unwrap();
 				for (name, val) in bp {
-					let inp = data.get_input(name);
+					let inp = data.get_signal(name);
 					states.insert(
-						inp.promoter.to_owned(),
+						inp.promoter.to_string(),
 						if *val == true {
 							inp.rpu_on
 						} else {

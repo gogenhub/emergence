@@ -1,16 +1,19 @@
-use crate::_utils::{assigner, data, error, genetic_circuit};
+use crate::_utils::{assigner, error, genetic_circuit};
 use assigner::GeneNetwork;
-use data::{get_data, Output};
 use error::Error;
-use genetic_circuit::{Component, GeneticCircuit};
+use genetic_circuit::{Component, GeneticCircuit, Signal};
 use serde::Serialize;
 use std::collections::HashMap;
 
-pub mod device;
-pub use device::Device;
+mod device;
+mod gate;
+mod input;
+mod output;
 
-pub mod gate;
+pub use device::Device;
 pub use gate::{Gate, GateKind};
+pub use input::Input;
+pub use output::Output;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct Testbench {
@@ -19,32 +22,37 @@ pub struct Testbench {
 
 #[derive(Clone)]
 pub struct LogicCircuit {
-	pub inputs: Vec<String>,
-	pub output: String,
+	pub inputs: Vec<Input>,
+	pub outputs: Vec<Output>,
 	pub devices: Vec<Device>,
 	pub testbench: Testbench,
 }
 
 impl LogicCircuit {
 	pub fn into_biological(&self, selected_genes: &Vec<usize>) -> GeneticCircuit {
-		let data = get_data();
 		let mut components = Vec::new();
+		let mut inputs = Vec::new();
 		let mut cached: HashMap<String, Component> = HashMap::new();
+
+		for inp in &self.inputs {
+			let sig = inp.into_biological(&mut cached);
+			let sigs: Vec<Signal> = sig.iter().map(|x| x.signal()).collect();
+			inputs.extend(sigs);
+		}
+
 		for (i, selected) in selected_genes.iter().rev().enumerate() {
 			let device = self.devices.get(i).unwrap();
 			let batch = device.into_biological(*selected, &mut cached);
 			components.extend(batch);
 		}
 
-		let out_gene = cached.get(&self.output).unwrap();
-		let output = Output::new(out_gene.name(), out_gene.promoter());
 		let genetic_circuit = GeneticCircuit {
-			inputs: self
-				.inputs
+			inputs,
+			outputs: self
+				.outputs
 				.iter()
-				.map(|x| data.get_input(&x).clone())
+				.map(|x| x.into_biological(&cached))
 				.collect(),
-			output,
 			components,
 			score: None,
 			simulation: None,
