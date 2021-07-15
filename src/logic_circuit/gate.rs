@@ -1,4 +1,4 @@
-use crate::_utils::{data, genetic_circuit};
+use crate::{genetic_circuit, utils::data};
 use colors_transform::{Color, Hsl};
 use data::get_data;
 use genetic_circuit::{Component, Gene};

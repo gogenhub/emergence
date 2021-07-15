@@ -1,4 +1,4 @@
-use crate::_utils::{data, dna};
+use crate::{dna, utils::data};
 use data::{get_data, GeneData};
 use dna::Dna;
 use serde::{Deserialize, Serialize};
