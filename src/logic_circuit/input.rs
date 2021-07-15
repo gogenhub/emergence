@@ -1,6 +1,6 @@
 use crate::{genetic_circuit, utils::data};
 use data::get_data;
-use genetic_circuit::{Component, Signal};
+use genetic_circuit::Component;
 use std::collections::hash_map::HashMap;
 
 #[derive(Clone, Debug)]
