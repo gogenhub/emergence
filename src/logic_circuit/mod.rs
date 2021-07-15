@@ -1,19 +1,18 @@
-use crate::_utils::{assigner, error, genetic_circuit};
-use assigner::GeneNetwork;
-use error::Error;
-use genetic_circuit::{Component, GeneticCircuit, Signal};
-use serde::Serialize;
-use std::collections::HashMap;
-
+pub mod builder;
 mod device;
 mod gate;
 mod input;
 mod output;
 
+use crate::{genetic_circuit, utils::error};
 pub use device::Device;
+use error::Error;
 pub use gate::{Gate, GateKind};
+use genetic_circuit::{assigner::GeneNetwork, Component, GeneticCircuit, Signal};
 pub use input::Input;
 pub use output::Output;
+use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct Testbench {

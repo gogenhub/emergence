@@ -1,5 +1,4 @@
-use crate::_utils::lexer;
-use lexer::Token;
+use crate::parser::lexer::Token;
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]

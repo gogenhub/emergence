@@ -1,4 +1,6 @@
-use crate::_utils::{error, lexer};
+pub mod lexer;
+
+use crate::utils::error;
 use error::Error;
 use lexer::{LexerIter, Token, TokenKind};
 use std::iter::Peekable;

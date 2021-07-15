@@ -1,9 +1,11 @@
-use crate::_utils::{data, error, lexer, logic_circuit, parser};
+use crate::{
+	logic_circuit, parser,
+	utils::{data, error},
+};
 use data::get_data;
 use error::Error;
-use lexer::Token;
 use logic_circuit::{Device, Gate, GateKind, Input, LogicCircuit, Output, Testbench};
-use parser::{Def, Enviroment, Implementation, Module, Operation, ParserIter, Test};
+use parser::{lexer::Token, Def, Enviroment, Implementation, Module, Operation, ParserIter, Test};
 use std::collections::{HashMap, HashSet};
 
 pub struct LogicCircuitBuilder<'a> {

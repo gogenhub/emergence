@@ -1,4 +1,4 @@
-use crate::_utils::data::PartKind;
+use crate::utils::data::PartKind;
 use chrono::Utc;
 use serde::Serialize;
 

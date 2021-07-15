@@ -1,4 +1,5 @@
 mod actuator;
+pub mod assigner;
 mod component;
 mod gene;
 mod signal;
@@ -8,7 +9,7 @@ pub use component::Component;
 pub use gene::Gene;
 pub use signal::Signal;
 
-use crate::_utils::{data, dna, logic_circuit};
+use crate::{dna, logic_circuit, utils::data};
 use data::{get_data, PartKind};
 use dna::Dna;
 use logic_circuit::Testbench;

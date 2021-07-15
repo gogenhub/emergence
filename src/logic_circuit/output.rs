@@ -1,4 +1,4 @@
-use crate::_utils::genetic_circuit;
+use crate::genetic_circuit;
 use genetic_circuit::{Actuator, Component};
 use std::collections::HashMap;
 

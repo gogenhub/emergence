@@ -1,6 +1,5 @@
-use crate::_utils::genetic_circuit;
+use crate::genetic_circuit::Signal;
 use fs_extra::file::read_to_string;
-use genetic_circuit::Signal;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;

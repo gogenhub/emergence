@@ -1,4 +1,7 @@
-use crate::_utils::{data, error, logic_circuit};
+use crate::{
+	logic_circuit,
+	utils::{data, error},
+};
 use data::get_data;
 use error::Error;
 use logic_circuit::LogicCircuit;

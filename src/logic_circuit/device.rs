@@ -1,5 +1,5 @@
 use super::*;
-use crate::_utils::genetic_circuit::Component;
+use crate::genetic_circuit::Component;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]

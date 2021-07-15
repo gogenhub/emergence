@@ -1,6 +1,6 @@
 [package]
-name = "index"
-version = "0.2.0"
+name = "emergence"
+version = "0.2.1"
 authors = [ "Filip Lazovic <lazoviccorp@gmail.com>" ]
 edition = "2018"
 
@@ -16,7 +16,3 @@ chrono = "0.4"
 colors-transform = "0.2.11"
 rand = "0.7.3"
 thiserror = "1.0.23"
-
-[[bin]]
-name = "compile"
-path = "api/compile.rs"
